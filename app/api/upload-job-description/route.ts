@@ -50,17 +50,17 @@ export async function POST(request: NextRequest) {
             mimeType: file.type
           }
         };
-        prompt = `Extract all information from this resume ${file.type === 'application/pdf' ? 'PDF' : 'image'} and format it as JSON with the following structure:`;
+        prompt = `Extract all information from this job description ${file.type === 'application/pdf' ? 'PDF' : 'image'} and format it as JSON with the following structure:`;
       } else if (file.type === 'text/plain') {
         // For text files, read content directly
         const textContent = buffer.toString('utf-8');
-        prompt = `Extract all information from this resume text and format it as JSON with the following structure:\n\nResume content:\n${textContent}\n\n`;
+        prompt = `Extract all information from this job description text and format it as JSON with the following structure:\n\nJob Description content:\n${textContent}\n\n`;
       } else if (file.type === 'application/msword' || file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
         // For DOC/DOCX files, extract text using mammoth
         try {
           const result = await mammoth.extractRawText({ buffer });
           const textContent = result.value;
-          prompt = `Extract all information from this resume text and format it as JSON with the following structure:\n\nResume content:\n${textContent}\n\n`;
+          prompt = `Extract all information from this job description text and format it as JSON with the following structure:\n\nJob Description content:\n${textContent}\n\n`;
         } catch (docError) {
           console.error('Document parsing error:', docError);
           return NextResponse.json({
@@ -75,66 +75,68 @@ export async function POST(request: NextRequest) {
 
       prompt += `
 {
-  "name": "Full Name",
-  "email": "email@example.com",
-  "phone": "phone number",
-  "dob": "Date of birth in YYYY-MM-DD format. This is VERY important - carefully look for any DOB, Date of Birth, Birth Date, or text containing 'born on' in the resume. When found, convert to YYYY-MM-DD format (e.g., 1990-05-15). If not found, return null. Do not mistake other dates like graduation or job start dates for DOB.",
+  "jobTitle": "Job Title/Position Name",
+  "companyName": "Company Name if mentioned",
+  "department": "Department if mentioned",
   "location": {
-    "city": "City name only. Extract just the city from the address, without any house number, street, or zip code. Look for context clues like 'residing in', 'based in', etc.",
-    "state": "State or province name only. Extract just the state/province from the address.",
-    "country": "Country name only. Extract just the country from the address. Default to 'India' if a country isn't explicitly mentioned but the resume appears to be from India."
+    "city": "City name if mentioned",
+    "state": "State name if mentioned",
+    "country": "Country name if mentioned",
+    "isRemote": "true/false - whether the job is remote or allows remote work",
+    "isHybrid": "true/false - whether the job is hybrid",
+    "isOnsite": "true/false - whether the job requires onsite work"
   },
-  "contactDetails": {
-    "address": "address if available",
-    "linkedin": "linkedin url if available",
-    "github": "github url if available",
-    "website": "personal website if available",
-    "twitter": "twitter handle if available"
+  "jobType": "Full-time/Part-time/Contract/Internship/Temporary",
+  "experienceLevel": "Entry Level/Mid Level/Senior Level/Executive",
+  "experienceRequired": "Number of years of experience required (e.g., 2-5 years, 5+ years)",
+  "salaryRange": {
+    "min": "Minimum salary if mentioned",
+    "max": "Maximum salary if mentioned",
+    "currency": "Currency (e.g., USD, INR)",
+    "period": "per year/per month/per hour"
   },
-  "socialLinks": ["array of social media links"],
-  "experience": [
-    {
-      "company": "Company Name",
-      "position": "Job Title",
-      "tenure": "Duration (e.g., Jan 2020 - Dec 2022)",
-      "startMonth": "Start month (e.g., January, Jan)",
-      "startYear": "Start year (e.g., 2020)",
-      "endMonth": "End month if available, or 'Present' if current job",
-      "endYear": "End year if available, or current year if current job",
-      "isCurrentJob": "true or false based on whether this is their current position",
-      "description": "Job description",
-      "skills": ["relevant skills used"]
-    }
+  "description": "Complete job description text",
+  "responsibilities": [
+    "List of job responsibilities and duties"
   ],
-  "projects": [
-    {
-      "name": "Project Name",
-      "link": "project url if available",
-      "description": "project description",
-      "skills": ["technologies used"]
-    }
+  "requirements": {
+    "education": "Educational requirements",
+    "skills": [
+      "List of required technical and soft skills"
+    ],
+    "experience": "Experience requirements details",
+    "certifications": [
+      "Required certifications if any"
+    ]
+  },
+  "preferredQualifications": [
+    "Nice-to-have qualifications"
   ],
-  "skills": ["array of all skills mentioned"],
-  "education": [
-    {
-      "institution": "School/University Name",
-      "degree": "Degree Name",
-      "field": "Field of Study",
-      "year": "Graduation Year as a 4-digit number (e.g., 2020). Look for text like 'graduated', 'completed', 'class of', etc.",
-      "startYear": "Start year of education if available",
-      "endYear": "End/graduation year if available",
-      "score": "GPA/Percentage if mentioned"
-    }
+  "benefits": [
+    "List of benefits offered"
   ],
-  "certifications": [
-    {
-      "name": "Certification Name",
-      "issuer": "Issuing Organization",
-      "date": "Date of Issue"
-    }
-  ],
-  "summary": "A long summary of the resume, including key achievements and career highlights, techniques used, and any notable contributions."
+  "applicationDeadline": "Application deadline if mentioned (YYYY-MM-DD format)",
+  "contactInfo": {
+    "email": "Contact email if mentioned",
+    "phone": "Contact phone if mentioned",
+    "person": "Contact person name if mentioned"
+  },
+  "workSchedule": "Work schedule details if mentioned",
+  "travelRequirements": "Travel requirements if mentioned",
+  "industryType": "Industry type/sector",
+  "companySize": "Company size if mentioned",
+  "jobCode": "Job code/reference number if mentioned",
+  "summary": "A comprehensive summary of the job posting including key highlights, main responsibilities, and ideal candidate profile"
 }
+
+IMPORTANT INSTRUCTIONS:
+- Extract information exactly as written in the job description
+- For skills, include both technical skills (programming languages, tools, frameworks) and soft skills
+- For location, carefully determine if the job is remote, hybrid, or onsite based on the description
+- For salary, extract the exact range mentioned, don't make assumptions
+- For experience level, categorize based on years of experience mentioned
+- If any field is not mentioned in the job description, return null or empty array as appropriate
+- Pay special attention to required vs preferred qualifications
 
 Return only the JSON object, no additional text or formatting.`;
 
@@ -146,9 +148,7 @@ Return only the JSON object, no additional text or formatting.`;
       let text = response.text();
 
       try {
-
         text = text.replace(/```json\n?|\n?```/g, '').trim();
-
         extractedData = JSON.parse(text);
       } catch (parseError) {
         console.error('JSON parsing error:', parseError);
@@ -161,7 +161,7 @@ Return only the JSON object, no additional text or formatting.`;
     } catch (aiError) {
       console.error('Gemini AI error:', aiError);
       return NextResponse.json({
-        error: 'Failed to process resume with AI',
+        error: 'Failed to process job description with AI',
         details: aiError instanceof Error ? aiError.message : 'Unknown error'
       }, { status: 500 });
     }

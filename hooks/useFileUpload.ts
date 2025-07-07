@@ -4,6 +4,12 @@ interface ExtractedData {
     name?: string;
     email?: string;
     phone?: string;
+    dob?: string;
+    location?: {
+        city?: string;
+        state?: string;
+        country?: string;
+    };
     contactDetails?: {
         address?: string;
         linkedin?: string;
@@ -16,6 +22,11 @@ interface ExtractedData {
         company: string;
         position: string;
         tenure: string;
+        startMonth?: string;
+        startYear?: string;
+        endMonth?: string;
+        endYear?: string;
+        isCurrentJob?: boolean;
         description: string;
         skills: string[];
     }>;
@@ -31,6 +42,8 @@ interface ExtractedData {
         degree: string;
         field: string;
         year: string;
+        startYear?: string;
+        endYear?: string;
         score?: string;
     }>;
     certifications?: Array<{

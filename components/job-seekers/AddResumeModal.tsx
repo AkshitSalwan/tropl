@@ -58,6 +58,7 @@ export function AddResumeModal({ open, onOpenChange }: AddResumeModalProps) {
     github: "",
     jobTitle: "",
     salary: "",
+    expectedSalary: "",
     noticePeriod: "",
     experience: "",
     relocate: "",
@@ -82,6 +83,127 @@ export function AddResumeModal({ open, onOpenChange }: AddResumeModalProps) {
   }>({ status: 'idle' });
 
   const { uploadSingleFile, isUploading, uploadProgress } = useFileUpload();
+
+  // Form validation function
+  const validateRequiredFields = () => {
+    const requiredFields = {
+      firstName: 'First Name',
+      lastName: 'Last Name',
+      email: 'Email ID',
+      phone: 'Phone Number',
+      dob: 'Date of Birth',
+      city: 'Current Location (City)',
+      state: 'Current Location (State)',
+      country: 'Current Location (Country)',
+      relocate: 'Open to Relocation',
+      salary: 'Current Salary',
+      expectedSalary: 'Expected Salary'
+    };
+
+    const missingFields = [];
+    for (const [field, label] of Object.entries(requiredFields)) {
+      if (!formData[field as keyof typeof formData]) {
+        missingFields.push(label);
+      }
+    }
+
+    if (skills.length === 0) {
+      missingFields.push('Technical Skills');
+    }
+
+    return missingFields;
+  };
+
+  const handleSave = () => {
+    const missingFields = validateRequiredFields();
+    if (missingFields.length > 0) {
+      setUploadStatus({
+        status: 'error',
+        message: `Please fill the following required fields: ${missingFields.join(', ')}`
+      });
+      return;
+    }
+
+    // If all required fields are filled, proceed with save
+    console.log('Form data:', formData);
+    console.log('Skills:', skills);
+    console.log('Experiences:', experiences);
+    console.log('Education:', education);
+    onOpenChange(false);
+  };
+
+  // Helper function to parse date strings and extract month/year
+  const parseDateString = (dateStr: string) => {
+    if (!dateStr) return { month: '', year: '' };
+    
+    // Handle different date formats
+    const monthNames = [
+      'jan', 'january', 'feb', 'february', 'mar', 'march', 'apr', 'april', 
+      'may', 'jun', 'june', 'jul', 'july', 'aug', 'august', 'sep', 'sept', 
+      'september', 'oct', 'october', 'nov', 'november', 'dec', 'december'
+    ];
+    const monthAbbr = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const monthMapping = {
+      'jan': 0, 'january': 0, 'feb': 1, 'february': 1, 'mar': 2, 'march': 2,
+      'apr': 3, 'april': 3, 'may': 4, 'jun': 5, 'june': 5, 'jul': 6, 'july': 6,
+      'aug': 7, 'august': 7, 'sep': 8, 'sept': 8, 'september': 8, 'oct': 9, 
+      'october': 9, 'nov': 10, 'november': 10, 'dec': 11, 'december': 11
+    };
+    
+    const lowerStr = dateStr.toLowerCase();
+    
+    // Try to find month
+    let month = '';
+    let year = '';
+    
+    for (const [monthName, monthIndex] of Object.entries(monthMapping)) {
+      if (lowerStr.includes(monthName)) {
+        month = monthAbbr[monthIndex];
+        break;
+      }
+    }
+    
+    // Try to find year (4 digits)
+    const yearMatch = dateStr.match(/\d{4}/);
+    if (yearMatch) {
+      year = yearMatch[0];
+    }
+    
+    return { month, year };
+  };
+
+  // Helper function to parse tenure string and extract dates
+  const parseTenureString = (tenure: string) => {
+    if (!tenure) return { startMonth: '', startYear: '', endMonth: '', endYear: '', present: false };
+    
+    // Handle formats like "Jan 2020 - Dec 2022" or "Jan 2020 - Present"
+    const parts = tenure.split(' - ');
+    if (parts.length === 2) {
+      const startDate = parseDateString(parts[0]);
+      const endPart = parts[1].toLowerCase();
+      
+      if (endPart.includes('present') || endPart.includes('current')) {
+        return {
+          startMonth: startDate.month,
+          startYear: startDate.year,
+          endMonth: '',
+          endYear: '',
+          present: true
+        };
+      } else {
+        const endDate = parseDateString(parts[1]);
+        return {
+          startMonth: startDate.month,
+          startYear: startDate.year,
+          endMonth: endDate.month,
+          endYear: endDate.year,
+          present: false
+        };
+      }
+    }
+    
+    return { startMonth: '', startYear: '', endMonth: '', endYear: '', present: false };
+  };
 
   const addSkill = () => {
     if (newSkill && !skills.includes(newSkill)) {
@@ -134,6 +256,28 @@ export function AddResumeModal({ open, onOpenChange }: AddResumeModalProps) {
       if (result.success && result.extractedData) {
         const data = result.extractedData;
         
+        // Debug logging
+        console.log('AI Extracted Data:', data);
+        
+        // Format DOB to work with date input if present
+        let formattedDob = '';
+        if (data.dob) {
+          // If dob is already in YYYY-MM-DD format, use it directly
+          if (/^\d{4}-\d{2}-\d{2}$/.test(data.dob)) {
+            formattedDob = data.dob;
+          } else {
+            // Try to parse the date
+            try {
+              const dateObj = new Date(data.dob);
+              if (!isNaN(dateObj.getTime())) {
+                formattedDob = dateObj.toISOString().split('T')[0];
+              }
+            } catch (error) {
+              console.error('Failed to parse DOB:', error);
+            }
+          }
+        }
+        
         // Auto-fill form fields
         setFormData(prev => ({
           ...prev,
@@ -145,38 +289,138 @@ export function AddResumeModal({ open, onOpenChange }: AddResumeModalProps) {
           github: data.contactDetails?.github || prev.github,
           jobTitle: data.experience?.[0]?.position || prev.jobTitle,
           summary: data.summary || prev.summary,
+          // Map DOB from extracted data with formatting
+          dob: formattedDob || prev.dob,
+          // Use structured location data if available
+          city: data.location?.city || data.contactDetails?.address?.split(',')[0] || prev.city,
+          state: data.location?.state || data.contactDetails?.address?.split(',')[1]?.trim() || prev.state,
+          country: data.location?.country || prev.country,
         }));
 
         // Auto-fill skills
         if (data.skills && data.skills.length > 0) {
+          console.log('Auto-filling skills:', data.skills);
           setSkills(data.skills);
         }
 
-        // Auto-fill experience
+        // Auto-fill experience with enhanced date parsing
         if (data.experience && data.experience.length > 0) {
-          const mappedExperiences = data.experience.map(exp => ({
-            client: exp.company,
-            startMonth: "",
-            startYear: "",
-            endMonth: "",
-            endYear: "",
-            present: false
-          }));
+          const mappedExperiences = data.experience.map((exp: any) => {
+            // Try to use extracted month/year fields first
+            let expData = {
+              client: exp.company || '',
+              startMonth: exp.startMonth || '',
+              startYear: exp.startYear || '',
+              endMonth: exp.endMonth || '',
+              endYear: exp.endYear || '',
+              present: exp.isCurrentJob || false
+            };
+            
+            // If month/year fields are not available, try to parse tenure string
+            if (!expData.startMonth && !expData.startYear && exp.tenure) {
+              console.log('Parsing tenure string:', exp.tenure);
+              const parsedTenure = parseTenureString(exp.tenure);
+              expData = {
+                ...expData,
+                startMonth: parsedTenure.startMonth,
+                startYear: parsedTenure.startYear,
+                endMonth: parsedTenure.endMonth,
+                endYear: parsedTenure.endYear,
+                present: parsedTenure.present
+              };
+            }
+            
+            console.log('Mapped experience:', expData);
+            return expData;
+          });
           setExperiences(mappedExperiences);
         }
 
-        // Auto-fill education
+        // Auto-fill education with enhanced parsing
         if (data.education && data.education.length > 0) {
-          const mappedEducation = data.education.map(edu => ({
-            degree: `${edu.degree} in ${edu.field}`,
-            year: edu.year
-          }));
+          const mappedEducation = data.education.map((edu: any) => {
+            let degree = '';
+            let year = '';
+            
+            // Build degree string
+            if (edu.degree && edu.field) {
+              degree = `${edu.degree} in ${edu.field}`;
+            } else if (edu.degree) {
+              degree = edu.degree;
+            }
+            
+            // Add institution if available
+            if (edu.institution && !degree.includes(edu.institution)) {
+              degree = degree ? `${degree} from ${edu.institution}` : edu.institution;
+            }
+            
+            // Determine year - try multiple fields with preference order
+            year = edu.year || edu.endYear || edu.startYear || '';
+            
+            // If we have a year string but not a number, try to extract it
+            if (year && !/^\d{4}$/.test(year)) {
+              const yearMatch = year.match(/\d{4}/);
+              if (yearMatch) {
+                year = yearMatch[0];
+              }
+            }
+            
+            // If still no year, try to extract from duration or any other field
+            if (!year) {
+              // Check all object properties for a 4-digit year
+              for (const prop in edu) {
+                if (typeof edu[prop] === 'string') {
+                  const yearMatch = edu[prop].match(/\d{4}/g);
+                  if (yearMatch && yearMatch.length > 0) {
+                    // Prefer the last year as it's likely the graduation year
+                    year = yearMatch[yearMatch.length - 1];
+                    break;
+                  }
+                }
+              }
+            }
+            
+            console.log('Mapped education:', { degree, year, original: edu });
+            return { degree, year };
+          });
           setEducation(mappedEducation);
+        }
+
+        // Auto-fill certifications as education entries
+        if (data.certifications && data.certifications.length > 0) {
+          const mappedCertifications = data.certifications.map((cert: any) => {
+            let degree = cert.name || '';
+            let year = cert.year || '';
+            
+            // Try to extract year from date if year not available
+            if (!year && cert.date) {
+              const dateYear = cert.date.match(/\d{4}/);
+              if (dateYear) {
+                year = dateYear[0];
+              }
+            }
+            
+            // Add issuer if available
+            if (cert.issuer && !degree.includes(cert.issuer)) {
+              degree = degree ? `${degree} by ${cert.issuer}` : cert.issuer;
+            }
+            
+            console.log('Mapped certification:', { degree, year, original: cert });
+            return { degree, year };
+          });
+          // Add certifications to existing education
+          setEducation(prev => [...prev, ...mappedCertifications]);
         }
 
         setUploadStatus({ 
           status: 'success', 
-          message: 'Resume processed successfully! Form has been auto-filled.' 
+          message: `Resume processed successfully! Auto-filled ${
+            data.experience?.length || 0
+          } experience entries, ${
+            data.education?.length || 0
+          } education entries, and ${
+            data.certifications?.length || 0
+          } certifications.`
         });
       }
     } catch (error) {
@@ -293,12 +537,18 @@ export function AddResumeModal({ open, onOpenChange }: AddResumeModalProps) {
                 />
               </div>
               <div className="space-y-2 col-span-1">
-                <Label htmlFor="dob">Date of Birth</Label>
-                <Input id="dob" type="date" />
+                <Label htmlFor="dob">Date of Birth<span className="text-red-500">*</span></Label>
+                <Input 
+                  id="dob" 
+                  type="date" 
+                  required
+                  value={formData.dob}
+                  onChange={(e) => updateFormData('dob', e.target.value)}
+                />
               </div>
               <div className="space-y-2 col-span-1">
                 <Label htmlFor="gender">Gender</Label>
-                <Select>
+                <Select value={formData.gender} onValueChange={(value) => updateFormData('gender', value)}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select gender" />
                   </SelectTrigger>
@@ -310,8 +560,8 @@ export function AddResumeModal({ open, onOpenChange }: AddResumeModalProps) {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="country">Country</Label>
-                <Select defaultValue="India">
+                <Label htmlFor="country">Country<span className="text-red-500">*</span></Label>
+                <Select value={formData.country} onValueChange={(value) => updateFormData('country', value)}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select country" />
                   </SelectTrigger>
@@ -321,8 +571,8 @@ export function AddResumeModal({ open, onOpenChange }: AddResumeModalProps) {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="state">State</Label>
-                <Select>
+                <Label htmlFor="state">State<span className="text-red-500">*</span></Label>
+                <Select value={formData.state} onValueChange={(value) => updateFormData('state', value)}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select state" />
                   </SelectTrigger>
@@ -334,8 +584,14 @@ export function AddResumeModal({ open, onOpenChange }: AddResumeModalProps) {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="city">City</Label>
-                <Input id="city" placeholder="Enter city" />
+                <Label htmlFor="city">City<span className="text-red-500">*</span></Label>
+                <Input 
+                  id="city" 
+                  placeholder="Enter city" 
+                  required
+                  value={formData.city}
+                  onChange={(e) => updateFormData('city', e.target.value)}
+                />
               </div>
             </div>
           </div>
@@ -420,23 +676,6 @@ export function AddResumeModal({ open, onOpenChange }: AddResumeModalProps) {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="salary">Expected Salary</Label>
-                <Input 
-                  id="salary" 
-                  type="number" 
-                  value={formData.salary}
-                  onChange={(e) => updateFormData('salary', e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="noticePeriod">Notice Period</Label>
-                <Input 
-                  id="noticePeriod" 
-                  value={formData.noticePeriod}
-                  onChange={(e) => updateFormData('noticePeriod', e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
                 <Label htmlFor="experience">Years of Experience</Label>
                 <Input 
                   id="experience" 
@@ -446,7 +685,38 @@ export function AddResumeModal({ open, onOpenChange }: AddResumeModalProps) {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="relocate">Willing to Relocate</Label>
+                <Label htmlFor="salary">Current Salary<span className="text-red-500">*</span></Label>
+                <Input 
+                  id="salary" 
+                  type="number" 
+                  placeholder="Enter current salary"
+                  required
+                  value={formData.salary}
+                  onChange={(e) => updateFormData('salary', e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="expectedSalary">Expected Salary<span className="text-red-500">*</span></Label>
+                <Input 
+                  id="expectedSalary" 
+                  type="number" 
+                  placeholder="Enter expected salary"
+                  required
+                  value={formData.expectedSalary}
+                  onChange={(e) => updateFormData('expectedSalary', e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="noticePeriod">Notice Period</Label>
+                <Input 
+                  id="noticePeriod" 
+                  placeholder="e.g., 30 days, 2 months"
+                  value={formData.noticePeriod}
+                  onChange={(e) => updateFormData('noticePeriod', e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="relocate">Open to Relocation<span className="text-red-500">*</span></Label>
                 <Select value={formData.relocate} onValueChange={(value) => updateFormData('relocate', value)}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select option" />
@@ -490,8 +760,8 @@ export function AddResumeModal({ open, onOpenChange }: AddResumeModalProps) {
                 <Button onClick={addSkill}>Add</Button>
               </div>
               <div className="flex flex-wrap gap-2">
-                {skills.map((skill) => (
-                  <Badge key={skill} variant="secondary">
+                {skills.map((skill, index) => (
+                  <Badge key={`${skill}-${index}`} variant="secondary">
                     {skill}
                     <button
                       onClick={() => removeSkill(skill)}
@@ -687,6 +957,7 @@ export function AddResumeModal({ open, onOpenChange }: AddResumeModalProps) {
           <Button 
             className="bg-green-600 hover:bg-green-700"
             disabled={isUploading}
+            onClick={handleSave}
           >
             {isUploading ? 'Processing...' : 'Save Resume'}
           </Button>

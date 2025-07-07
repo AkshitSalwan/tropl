@@ -11,6 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -416,6 +417,230 @@ export function CreateJobModal({ open, onOpenChange }: CreateJobModalProps) {
       </div>
     </div>
   );
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="onsite" id="onsite" />
+              <Label htmlFor="onsite">On Site</Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="hybrid" id="hybrid" />
+              <Label htmlFor="hybrid">Hybrid</Label>
+            </div>
+          </RadioGroup>
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <h3 className="font-medium">Client & Vendor Details</h3>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label>Client*</Label>
+            <Select>
+              <SelectTrigger>
+                <SelectValue placeholder="Select client" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="client1">Client 1</SelectItem>
+                <SelectItem value="client2">Client 2</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>End Client</Label>
+            <Select>
+              <SelectTrigger>
+                <SelectValue placeholder="Select end client" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="endclient1">End Client 1</SelectItem>
+                <SelectItem value="endclient2">End Client 2</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label>Organization Manager</Label>
+            <Select>
+              <SelectTrigger>
+                <SelectValue placeholder="Select manager" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="manager1">Manager 1</SelectItem>
+                <SelectItem value="manager2">Manager 2</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>Recruiter</Label>
+            <Select>
+              <SelectTrigger>
+                <SelectValue placeholder="Select recruiter" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="recruiter1">Recruiter 1</SelectItem>
+                <SelectItem value="recruiter2">Recruiter 2</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <h3 className="font-medium">Pay Rate Details</h3>
+        <div className="grid grid-cols-3 gap-4">
+          <div className="space-y-2">
+            <Label>Bill Rate (INR)</Label>
+            <Input type="number" placeholder="Enter bill rate" />
+          </div>
+          <div className="space-y-2">
+            <Label>Vendor Pay Rate (C2C)</Label>
+            <Input type="number" placeholder="Enter vendor pay rate" />
+          </div>
+          <div className="space-y-2">
+            <Label>Candidate Pay Rate</Label>
+            <Input type="number" placeholder="Enter candidate pay rate" />
+          </div>
+        </div>
+        <div className="grid grid-cols-3 gap-4">
+          <div className="space-y-2">
+            <Label>Bill Rate Frequency</Label>
+            <Select>
+              <SelectTrigger>
+                <SelectValue placeholder="Select frequency" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="monthly">Monthly</SelectItem>
+                <SelectItem value="weekly">Weekly</SelectItem>
+                <SelectItem value="hourly">Hourly</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>Vendor Pay Frequency</Label>
+            <Select>
+              <SelectTrigger>
+                <SelectValue placeholder="Select frequency" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="monthly">Monthly</SelectItem>
+                <SelectItem value="weekly">Weekly</SelectItem>
+                <SelectItem value="hourly">Hourly</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>Candidate Pay Frequency</Label>
+            <Select>
+              <SelectTrigger>
+                <SelectValue placeholder="Select frequency" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="monthly">Monthly</SelectItem>
+                <SelectItem value="weekly">Weekly</SelectItem>
+                <SelectItem value="hourly">Hourly</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <h3 className="font-medium">Location</h3>
+        <div className="grid grid-cols-3 gap-4">
+          <div className="space-y-2">
+            <Label>City*</Label>
+            <Select>
+              <SelectTrigger>
+                <SelectValue placeholder="Select city" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="mumbai">Mumbai</SelectItem>
+                <SelectItem value="delhi">Delhi</SelectItem>
+                <SelectItem value="bangalore">Bangalore</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>State*</Label>
+            <Select>
+              <SelectTrigger>
+                <SelectValue placeholder="Select state" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="maharashtra">Maharashtra</SelectItem>
+                <SelectItem value="karnataka">Karnataka</SelectItem>
+                <SelectItem value="tamilnadu">Tamil Nadu</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>Country*</Label>
+            <Select defaultValue="india">
+              <SelectTrigger>
+                <SelectValue placeholder="Select country" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="india">India</SelectItem>
+                <SelectItem value="usa">United States</SelectItem>
+                <SelectItem value="uk">United Kingdom</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <h3 className="font-medium">Skills</h3>
+        <div className="space-y-2">
+          <Label>Primary Skills*</Label>
+          <Select>
+            <SelectTrigger>
+              <SelectValue placeholder="Select primary skills" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="react">React</SelectItem>
+              <SelectItem value="node">Node.js</SelectItem>
+              <SelectItem value="python">Python</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label>Skills</Label>
+          <Select>
+            <SelectTrigger>
+              <SelectValue placeholder="Select skills" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="javascript">JavaScript</SelectItem>
+              <SelectItem value="typescript">TypeScript</SelectItem>
+              <SelectItem value="java">Java</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <Button variant="link" className="p-0">
+          Upload Job Description
+        </Button>
+      </div>
+
+      <div className="space-y-4">
+        <h3 className="font-medium">Job Description</h3>
+        <Textarea
+          placeholder="Enter detailed job description..."
+          className="min-h-[200px]"
+        />
+      </div>
+
+      <div className="flex justify-end">
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" onClick={() => {
+            setStep(1);
+            setCreationMethod(null);
+          }}>Back</Button>
+          <Button onClick={() => setStep(3)}>Continue</Button>
+        </div>
+      </div>
+    </div>
+  );
 
   const renderStep3 = () => (
     <div className="space-y-6">
@@ -434,22 +659,32 @@ export function CreateJobModal({ open, onOpenChange }: CreateJobModalProps) {
           </Select>
         </div>
         <div className="space-y-2">
-          <Label>Additional Instructions</Label>
-          <Textarea placeholder="Enter any additional instructions for vendors" />
+          <Label>Share with Recruiters</Label>
+          <Select>
+            <SelectTrigger>
+              <SelectValue placeholder="Select recruiters" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="recruiter1">Recruiter 1</SelectItem>
+              <SelectItem value="recruiter2">Recruiter 2</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
-      <div className="flex justify-between">
-        <Button variant="outline" onClick={() => setStep(2)}>
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Previous
-        </Button>
-        <Button onClick={() => {
-          console.log('Job created:', jobData);
-          onOpenChange(false);
-        }}>
-          Create Job
-        </Button>
+      <div className="flex justify-end">
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" onClick={() => setStep(2)}>Back</Button>
+          <Button 
+            onClick={() => {
+              // Handle form submission
+              onOpenChange(false);
+            }}
+            className="bg-green-600 hover:bg-green-700"
+          >
+            Create New Job
+          </Button>
+        </div>
       </div>
     </div>
   );
@@ -458,36 +693,51 @@ export function CreateJobModal({ open, onOpenChange }: CreateJobModalProps) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Create New Job</DialogTitle>
-        </DialogHeader>
-
-        <div className="space-y-6 py-4">
-          {/* Progress Steps */}
-          <div className="flex items-center justify-center space-x-4">
-            {steps.map((stepInfo, index) => (
-              <div key={stepInfo.number} className="flex items-center">
+          <div className="flex items-center space-x-4">
+            {step > 1 && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setStep(step - 1)}
+              >
+                <ArrowLeft className="w-4 h-4" />
+              </Button>
+            )}
+            <DialogTitle>New Job</DialogTitle>
+          </div>
+          <div className="flex justify-between mt-4">
+            {steps.map((s) => (
+              <div
+                key={s.number}
+                className={`flex items-center ${
+                  s.number !== steps.length ? "flex-1" : ""
+                }`}
+              >
                 <div
-                  className={`flex items-center justify-center w-8 h-8 rounded-full ${
-                    step === stepInfo.number
+                  className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                    step >= s.number
                       ? "bg-blue-600 text-white"
-                      : step > stepInfo.number
-                      ? "bg-green-600 text-white"
                       : "bg-gray-200 text-gray-600"
                   }`}
                 >
-                  {stepInfo.number}
+                  {s.number}
                 </div>
-                <span className={`ml-2 text-sm ${step === stepInfo.number ? "font-medium" : ""}`}>
-                  {stepInfo.title}
-                </span>
-                {index < steps.length - 1 && (
-                  <div className="w-16 h-0.5 bg-gray-200 mx-4" />
+                <div
+                  className={`ml-2 text-sm ${
+                    step >= s.number ? "text-blue-600" : "text-gray-600"
+                  }`}
+                >
+                  {s.title}
+                </div>
+                {s.number !== steps.length && (
+                  <div className="flex-1 h-0.5 bg-gray-200 ml-2" />
                 )}
               </div>
             ))}
           </div>
+        </DialogHeader>
 
-          {/* Step Content */}
+        <div className="mt-6">
           {step === 1 && renderStep1()}
           {step === 2 && renderStep2()}
           {step === 3 && renderStep3()}
