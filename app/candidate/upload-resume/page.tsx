@@ -18,6 +18,7 @@ export default function UploadResumePage() {
   const [skills, setSkills] = useState<string[]>([]);
   const [newSkill, setNewSkill] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
   const router = useRouter();
 
   // Experiences state
@@ -103,6 +104,10 @@ export default function UploadResumePage() {
     if (skills.length === 0) {
       missingFields.push('Technical Skills');
     }
+    
+    if (selectedSkills.length !== 10) {
+      missingFields.push('10 Skills Selection (exactly 10 skills must be selected)');
+    }
 
     return missingFields;
   };
@@ -122,7 +127,8 @@ export default function UploadResumePage() {
     try {
       // If all required fields are filled, proceed with save
       console.log('Form data:', formData);
-      console.log('Skills:', skills);
+      console.log('All Skills:', skills);
+      console.log('Selected Skills (10):', selectedSkills);
       console.log('Experiences:', experiences);
       console.log('Education:', education);
       console.log('References:', references);
@@ -277,6 +283,16 @@ export default function UploadResumePage() {
         
         // Debug logging
         console.log('AI Extracted Data:', data);
+        console.log('AI Processed:', result.aiProcessed);
+        
+        // Check if AI processing was successful
+        if (result.aiProcessed === false) {
+          setUploadStatus({
+            status: 'success',
+            message: result.message || 'File uploaded successfully, but AI processing failed. Please fill the form manually.'
+          });
+          return;
+        }
         
         // Format DOB to work with date input if present
         let formattedDob = '';
@@ -320,6 +336,8 @@ export default function UploadResumePage() {
         if (data.skills && data.skills.length > 0) {
           console.log('Auto-filling skills:', data.skills);
           setSkills(data.skills);
+          // Reset selected skills when new skills are loaded
+          setSelectedSkills([]);
         }
 
         // Auto-fill experience with enhanced date parsing
@@ -464,6 +482,21 @@ export default function UploadResumePage() {
   const stateOptions = [
     "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh", "Goa", "Gujarat", "Haryana", "Himachal Pradesh", "Jharkhand", "Karnataka", "Kerala", "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu", "Telangana", "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal", "Delhi", "Puducherry", "Jammu and Kashmir", "Ladakh"
   ];
+
+  const toggleSkillSelection = (skill: string) => {
+    setSelectedSkills(prev => {
+      if (prev.includes(skill)) {
+        // Remove if already selected
+        return prev.filter(s => s !== skill);
+      } else {
+        // Add if not selected and less than 10 skills are selected
+        if (prev.length < 10) {
+          return [...prev, skill];
+        }
+        return prev;
+      }
+    });
+  };
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -759,12 +792,25 @@ export default function UploadResumePage() {
                 />
                 <Button onClick={addSkill}>Add</Button>
               </div>
+              {/* All skills list */}
               <div className="flex flex-wrap gap-2">
                 {skills.map((skill, index) => (
-                  <Badge key={`${skill}-${index}`} variant="secondary">
+                  <Badge 
+                    key={`${skill}-${index}`} 
+                    variant={selectedSkills.includes(skill) ? "default" : "secondary"}
+                    className={`cursor-pointer ${selectedSkills.includes(skill) ? 'bg-primary text-white' : ''}`}
+                    onClick={() => toggleSkillSelection(skill)}
+                  >
                     {skill}
                     <button
-                      onClick={() => removeSkill(skill)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removeSkill(skill);
+                        // Also remove from selected skills if it was selected
+                        if (selectedSkills.includes(skill)) {
+                          setSelectedSkills(prev => prev.filter(s => s !== skill));
+                        }
+                      }}
                       className="ml-1 hover:text-red-500"
                     >
                       <X className="h-3 w-3" />
@@ -772,6 +818,34 @@ export default function UploadResumePage() {
                   </Badge>
                 ))}
               </div>
+              
+              {/* Skills selection instructions */}
+              <Alert className={skills.length > 0 ? 'border-blue-200 bg-blue-50' : 'border-red-200 bg-red-50'}>
+                <div className="text-sm">
+                  <p className="font-semibold">
+                    Please select exactly 10 skills from the list above by clicking on them.
+                  </p>
+                  <p className="mt-1">
+                    Selected skills: {selectedSkills.length}/10
+                  </p>
+                  {selectedSkills.length > 10 && (
+                    <p className="text-red-500 mt-1">
+                      You've selected too many skills. Please remove {selectedSkills.length - 10} skill(s).
+                    </p>
+                  )}
+                  {selectedSkills.length < 10 && skills.length >= 10 && (
+                    <p className="text-blue-600 mt-1">
+                      Please select {10 - selectedSkills.length} more skill(s).
+                    </p>
+                  )}
+                  {skills.length < 10 && (
+                    <p className="text-amber-600 mt-1">
+                      You need to add at least {Math.max(0, 10 - skills.length)} more skill(s) to meet the minimum requirement.
+                    </p>
+                  )}
+                </div>
+              </Alert>
+              
               {/* Validation message for required skills */}
               {skills.length === 0 && (
                 <div className="text-red-500 text-xs mt-1">Please add at least one technical skill.</div>

@@ -60,6 +60,8 @@ interface UploadResult {
     filePath: string;
     extractedData: ExtractedData;
     error?: string;
+    aiProcessed?: boolean;
+    message?: string;
 }
 
 export function useFileUpload() {

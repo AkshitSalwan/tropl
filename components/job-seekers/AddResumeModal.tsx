@@ -31,6 +31,7 @@ interface AddResumeModalProps {
 export function AddResumeModal({ open, onOpenChange }: AddResumeModalProps) {
   const [skills, setSkills] = useState<string[]>([]);
   const [newSkill, setNewSkill] = useState("");
+  const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
 
   // Experiences state
   const [experiences, setExperiences] = useState([
@@ -110,6 +111,10 @@ export function AddResumeModal({ open, onOpenChange }: AddResumeModalProps) {
     if (skills.length === 0) {
       missingFields.push('Technical Skills');
     }
+    
+    if (selectedSkills.length !== 10) {
+      missingFields.push('10 Skills Selection (exactly 10 skills must be selected)');
+    }
 
     return missingFields;
   };
@@ -126,7 +131,8 @@ export function AddResumeModal({ open, onOpenChange }: AddResumeModalProps) {
 
     // If all required fields are filled, proceed with save
     console.log('Form data:', formData);
-    console.log('Skills:', skills);
+    console.log('All Skills:', skills);
+    console.log('Selected Skills (10):', selectedSkills);
     console.log('Experiences:', experiences);
     console.log('Education:', education);
     onOpenChange(false);
@@ -216,6 +222,22 @@ export function AddResumeModal({ open, onOpenChange }: AddResumeModalProps) {
     setSkills(skills.filter((s) => s !== skill));
   };
 
+  // Toggle skill selection for up to 10 skills
+  const toggleSkillSelection = (skill: string) => {
+    setSelectedSkills(prev => {
+      if (prev.includes(skill)) {
+        // Remove if already selected
+        return prev.filter(s => s !== skill);
+      } else {
+        // Add if not selected and less than 10 skills are selected
+        if (prev.length < 10) {
+          return [...prev, skill];
+        }
+        return prev;
+      }
+    });
+  };
+
   // Experience handlers
   const addExperience = () => setExperiences([...experiences, { client: "", startMonth: "", startYear: "", endMonth: "", endYear: "", present: false }]);
   const removeExperience = (idx: number) => setExperiences(experiences.filter((_, i) => i !== idx));
@@ -301,6 +323,8 @@ export function AddResumeModal({ open, onOpenChange }: AddResumeModalProps) {
         if (data.skills && data.skills.length > 0) {
           console.log('Auto-filling skills:', data.skills);
           setSkills(data.skills);
+          // Reset selected skills when new skills are loaded
+          setSelectedSkills([]);
         }
 
         // Auto-fill experience with enhanced date parsing
@@ -759,12 +783,25 @@ export function AddResumeModal({ open, onOpenChange }: AddResumeModalProps) {
                 />
                 <Button onClick={addSkill}>Add</Button>
               </div>
+              {/* All skills list */}
               <div className="flex flex-wrap gap-2">
                 {skills.map((skill, index) => (
-                  <Badge key={`${skill}-${index}`} variant="secondary">
+                  <Badge 
+                    key={`${skill}-${index}`} 
+                    variant={selectedSkills.includes(skill) ? "default" : "secondary"}
+                    className={`cursor-pointer ${selectedSkills.includes(skill) ? 'bg-primary text-white' : ''}`}
+                    onClick={() => toggleSkillSelection(skill)}
+                  >
                     {skill}
                     <button
-                      onClick={() => removeSkill(skill)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removeSkill(skill);
+                        // Also remove from selected skills if it was selected
+                        if (selectedSkills.includes(skill)) {
+                          setSelectedSkills(prev => prev.filter(s => s !== skill));
+                        }
+                      }}
                       className="ml-1 hover:text-red-500"
                     >
                       <X className="h-3 w-3" />
@@ -772,6 +809,34 @@ export function AddResumeModal({ open, onOpenChange }: AddResumeModalProps) {
                   </Badge>
                 ))}
               </div>
+              
+              {/* Skills selection instructions */}
+              <Alert className={skills.length > 0 ? 'border-blue-200 bg-blue-50' : 'border-red-200 bg-red-50'}>
+                <div className="text-sm">
+                  <p className="font-semibold">
+                    Please select exactly 10 skills from the list above by clicking on them.
+                  </p>
+                  <p className="mt-1">
+                    Selected skills: {selectedSkills.length}/10
+                  </p>
+                  {selectedSkills.length > 10 && (
+                    <p className="text-red-500 mt-1">
+                      You've selected too many skills. Please remove {selectedSkills.length - 10} skill(s).
+                    </p>
+                  )}
+                  {selectedSkills.length < 10 && skills.length >= 10 && (
+                    <p className="text-blue-600 mt-1">
+                      Please select {10 - selectedSkills.length} more skill(s).
+                    </p>
+                  )}
+                  {skills.length < 10 && (
+                    <p className="text-amber-600 mt-1">
+                      You need to add at least {Math.max(0, 10 - skills.length)} more skill(s) to meet the minimum requirement.
+                    </p>
+                  )}
+                </div>
+              </Alert>
+              
               {/* Validation message for required skills */}
               {skills.length === 0 && (
                 <div className="text-red-500 text-xs mt-1">Please add at least one technical skill.</div>
