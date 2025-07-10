@@ -40,12 +40,27 @@ interface ExtractedData {
     education?: Array<{
         institution: string;
         degree: string;
-        field: string;
+        field?: string;
         year: string;
         startYear?: string;
         endYear?: string;
         score?: string;
+        level?: string;
+        board?: string;
     }>;
+    secondaryEducation?: {
+        institution?: string;
+        board?: string;
+        year?: string;
+        percentage?: string;
+    };
+    higherSecondaryEducation?: {
+        institution?: string;
+        board?: string;
+        stream?: string;
+        year?: string;
+        percentage?: string;
+    };
     certifications?: Array<{
         name: string;
         issuer: string;

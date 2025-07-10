@@ -39,7 +39,7 @@ export function AddResumeModal({ open, onOpenChange }: AddResumeModalProps) {
   ]);
   // Education state
   const [education, setEducation] = useState([
-    { degree: "", year: "" }
+    { degree: "", institution: "", year: "", educationLevel: "" }
   ]);
   // Reference details state
   const [references, setReferences] = useState([
@@ -246,7 +246,7 @@ export function AddResumeModal({ open, onOpenChange }: AddResumeModalProps) {
   };
 
   // Education handlers
-  const addEducation = () => setEducation([...education, { degree: "", year: "" }]);
+  const addEducation = () => setEducation([...education, { degree: "", institution: "", year: "", educationLevel: "" }]);
   const removeEducation = (idx: number) => setEducation(education.filter((_, i) => i !== idx));
   const updateEducation = (idx: number, field: string, value: any) => {
     setEducation(education.map((edu, i) => i === idx ? { ...edu, [field]: value } : edu));
@@ -365,21 +365,62 @@ export function AddResumeModal({ open, onOpenChange }: AddResumeModalProps) {
           const mappedEducation = data.education.map((edu: any) => {
             let degree = '';
             let year = '';
+            let institution = '';
+            let educationLevel = '';
+            
+            // Determine education level based on keywords or explicit level field
+            if (edu.level) {
+              educationLevel = edu.level;
+            } else if (edu.degree && typeof edu.degree === 'string') {
+              const degreeStr = edu.degree.toLowerCase();
+              if (degreeStr.includes('10th') || degreeStr.includes('secondary') || degreeStr.includes('sslc')) {
+                educationLevel = '10th';
+              } else if (degreeStr.includes('12th') || degreeStr.includes('higher secondary') || degreeStr.includes('hsc') || degreeStr.includes('puc')) {
+                educationLevel = '12th';
+              } else if (degreeStr.includes('bachelor') || degreeStr.includes('b.') || degreeStr.includes('ba') || degreeStr.includes('bs') || degreeStr.includes('btech')) {
+                educationLevel = 'bachelor';
+              } else if (degreeStr.includes('master') || degreeStr.includes('m.') || degreeStr.includes('ma') || degreeStr.includes('ms') || degreeStr.includes('mtech')) {
+                educationLevel = 'master';
+              } else if (degreeStr.includes('phd') || degreeStr.includes('doctorate')) {
+                educationLevel = 'phd';
+              } else if (degreeStr.includes('diploma')) {
+                educationLevel = 'diploma';
+              } else if (degreeStr.includes('certif')) {
+                educationLevel = 'certificate';
+              }
+            }
+            
+            // Extract institution name
+            if (edu.institution) {
+              institution = edu.institution;
+            } else if (edu.school) {
+              institution = edu.school;
+            } else if (edu.university) {
+              institution = edu.university;
+            } else if (edu.college) {
+              institution = edu.college;
+            }
             
             // Build degree string
             if (edu.degree && edu.field) {
               degree = `${edu.degree} in ${edu.field}`;
             } else if (edu.degree) {
               degree = edu.degree;
+            } else if (edu.major) {
+              degree = edu.major;
+            } else if (edu.course) {
+              degree = edu.course;
             }
             
-            // Add institution if available
-            if (edu.institution && !degree.includes(edu.institution)) {
-              degree = degree ? `${degree} from ${edu.institution}` : edu.institution;
+            // For 10th and 12th, ensure we set reasonable values
+            if (educationLevel === '10th' && !degree) {
+              degree = 'Secondary School Certificate';
+            } else if (educationLevel === '12th' && !degree) {
+              degree = 'Higher Secondary Certificate';
             }
             
             // Determine year - try multiple fields with preference order
-            year = edu.year || edu.endYear || edu.startYear || '';
+            year = edu.year || edu.endYear || edu.startYear || edu.graduationYear || '';
             
             // If we have a year string but not a number, try to extract it
             if (year && !/^\d{4}$/.test(year)) {
@@ -404,36 +445,47 @@ export function AddResumeModal({ open, onOpenChange }: AddResumeModalProps) {
               }
             }
             
-            console.log('Mapped education:', { degree, year, original: edu });
-            return { degree, year };
+            console.log('Mapped education:', { degree, institution, year, educationLevel, original: edu });
+            return { degree, institution, year, educationLevel };
           });
           setEducation(mappedEducation);
         }
 
-        // Auto-fill certifications as education entries
-        if (data.certifications && data.certifications.length > 0) {
-          const mappedCertifications = data.certifications.map((cert: any) => {
-            let degree = cert.name || '';
-            let year = cert.year || '';
+        // Handle specific 10th and 12th standard education details
+        if (data.secondaryEducation || data.higherSecondaryEducation) {
+          let updatedEducation = [...education];
+          
+          // Process 10th standard data
+          if (data.secondaryEducation) {
+            const tenth = {
+              degree: "Secondary School Certificate",
+              institution: data.secondaryEducation.institution || "",
+              year: data.secondaryEducation.year || "",
+              educationLevel: "10th"
+            };
             
-            // Try to extract year from date if year not available
-            if (!year && cert.date) {
-              const dateYear = cert.date.match(/\d{4}/);
-              if (dateYear) {
-                year = dateYear[0];
-              }
-            }
+            console.log('Found 10th standard details:', tenth);
+            updatedEducation = [...updatedEducation, tenth];
+          }
+          
+          // Process 12th standard data
+          if (data.higherSecondaryEducation) {
+            const stream = data.higherSecondaryEducation.stream 
+              ? ` (${data.higherSecondaryEducation.stream})`
+              : "";
+              
+            const twelfth = {
+              degree: `Higher Secondary Certificate${stream}`,
+              institution: data.higherSecondaryEducation.institution || "",
+              year: data.higherSecondaryEducation.year || "",
+              educationLevel: "12th"
+            };
             
-            // Add issuer if available
-            if (cert.issuer && !degree.includes(cert.issuer)) {
-              degree = degree ? `${degree} by ${cert.issuer}` : cert.issuer;
-            }
-            
-            console.log('Mapped certification:', { degree, year, original: cert });
-            return { degree, year };
-          });
-          // Add certifications to existing education
-          setEducation(prev => [...prev, ...mappedCertifications]);
+            console.log('Found 12th standard details:', twelfth);
+            updatedEducation = [...updatedEducation, twelfth];
+          }
+          
+          setEducation(updatedEducation);
         }
 
         setUploadStatus({ 
@@ -925,15 +977,42 @@ export function AddResumeModal({ open, onOpenChange }: AddResumeModalProps) {
               <Button type="button" size="icon" variant="ghost" onClick={addEducation} className="ml-2"><Plus className="h-4 w-4" /></Button>
             </h3>
             {education.map((edu, idx) => (
-              <div key={idx} className="grid grid-cols-6 gap-4 items-end border p-3 rounded-md relative">
-                <div className="col-span-4 space-y-2">
+              <div key={idx} className="grid grid-cols-12 gap-4 items-end border p-3 rounded-md relative">
+                <div className="col-span-3 space-y-2">
+                  <Label>Education Level</Label>
+                  <Select value={edu.educationLevel} onValueChange={val => updateEducation(idx, 'educationLevel', val)}>
+                    <SelectTrigger><SelectValue placeholder="Select Level" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="10th">10th (Secondary)</SelectItem>
+                      <SelectItem value="12th">12th (Higher Secondary)</SelectItem>
+                      <SelectItem value="diploma">Diploma</SelectItem>
+                      <SelectItem value="bachelor">Bachelor's Degree</SelectItem>
+                      <SelectItem value="master">Master's Degree</SelectItem>
+                      <SelectItem value="phd">PhD</SelectItem>
+                      <SelectItem value="certificate">Certificate</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="col-span-3 space-y-2">
                   <Label>Degree / Course</Label>
-                  <Input value={edu.degree} onChange={e => updateEducation(idx, 'degree', e.target.value)} placeholder="Degree or Course" />
+                  <Input 
+                    value={edu.degree}
+                    onChange={e => updateEducation(idx, 'degree', e.target.value)}
+                    placeholder="Degree or Course"
+                  />
+                </div>
+                <div className="col-span-3 space-y-2">
+                  <Label>Institution</Label>
+                  <Input 
+                    value={edu.institution}
+                    onChange={e => updateEducation(idx, 'institution', e.target.value)}
+                    placeholder="Institution Name"
+                  />
                 </div>
                 <div className="col-span-2 space-y-2">
-                  <Label>Year</Label>
+                  <Label>Year of Completion</Label>
                   <Select value={edu.year} onValueChange={val => updateEducation(idx, 'year', val)}>
-                    <SelectTrigger><SelectValue placeholder="Year" /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder="Select Year" /></SelectTrigger>
                     <SelectContent>
                       {years.map(y => <SelectItem key={y} value={y}>{y}</SelectItem>)}
                     </SelectContent>
@@ -946,25 +1025,25 @@ export function AddResumeModal({ open, onOpenChange }: AddResumeModalProps) {
 
           {/* Reference Details */}
           <div className="space-y-4">
-            <h3 className="text-lg font-medium flex items-center gap-2">Reference Details
+            <h3 className="text-lg font-medium flex items-center gap-2">References
               <Button type="button" size="icon" variant="ghost" onClick={addReference} className="ml-2"><Plus className="h-4 w-4" /></Button>
             </h3>
             {references.map((ref, idx) => (
               <div key={idx} className="grid grid-cols-4 gap-4 items-end border p-3 rounded-md relative">
-                <div className="space-y-2">
+                <div className="col-span-1 space-y-2">
                   <Label>Name</Label>
-                  <Input value={ref.name} onChange={e => updateReference(idx, 'name', e.target.value)} placeholder="Name" />
+                  <Input value={ref.name} onChange={e => updateReference(idx, 'name', e.target.value)} placeholder="Full Name" />
                 </div>
-                <div className="space-y-2">
+                <div className="col-span-1 space-y-2">
                   <Label>Designation</Label>
                   <Input value={ref.designation} onChange={e => updateReference(idx, 'designation', e.target.value)} placeholder="Designation" />
                 </div>
-                <div className="space-y-2">
+                <div className="col-span-1 space-y-2">
                   <Label>Email</Label>
-                  <Input value={ref.email} onChange={e => updateReference(idx, 'email', e.target.value)} placeholder="Email" />
+                  <Input value={ref.email} onChange={e => updateReference(idx, 'email', e.target.value)} placeholder="Email Address" />
                 </div>
-                <div className="space-y-2">
-                  <Label>Phone Number</Label>
+                <div className="col-span-1 space-y-2">
+                  <Label>Phone</Label>
                   <Input value={ref.phone} onChange={e => updateReference(idx, 'phone', e.target.value)} placeholder="Phone Number" />
                 </div>
                 <Button type="button" size="icon" variant="ghost" className="absolute top-2 right-2" onClick={() => removeReference(idx)}><X className="h-4 w-4" /></Button>
@@ -979,53 +1058,32 @@ export function AddResumeModal({ open, onOpenChange }: AddResumeModalProps) {
             </h3>
             {otherDocs.map((doc, idx) => (
               <div key={idx} className="grid grid-cols-4 gap-4 items-end border p-3 rounded-md relative">
-                <div className="space-y-2">
+                <div className="col-span-1 space-y-2">
                   <Label>Document Type</Label>
-                  <Select value={doc.type} onValueChange={val => updateOtherDoc(idx, 'type', val)}>
-                    <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Skill Matrix">Skill Matrix</SelectItem>
-                      <SelectItem value="Others">Others</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Input value={doc.type} onChange={e => updateOtherDoc(idx, 'type', e.target.value)} placeholder="e.g., Certificate, License" />
                 </div>
-                {doc.type === 'Others' && (
-                  <div className="space-y-2">
-                    <Label>Document Name</Label>
-                    <Input value={doc.name} onChange={e => updateOtherDoc(idx, 'name', e.target.value)} placeholder="Document Name" />
-                  </div>
-                )}
-                <div className="space-y-2 col-span-2">
-                  <Label>Upload File</Label>
-                  <label className="inline-flex items-center gap-2 cursor-pointer">
-                    <Button type="button" variant="outline" size="sm" asChild>
-                      <span>+ Select File</span>
-                    </Button>
-                    <input
-                      type="file"
-                      className="hidden"
-                      onChange={e => updateOtherDoc(idx, 'file', e.target.files && e.target.files[0] ? e.target.files[0] : null)}
-                    />
-                    {doc.file && <span className="text-xs text-gray-600 ml-2">{doc.file.name}</span>}
-                  </label>
+                <div className="col-span-1 space-y-2">
+                  <Label>Document Name</Label>
+                  <Input value={doc.name} onChange={e => updateOtherDoc(idx, 'name', e.target.value)} placeholder="Document Name" />
+                </div>
+                <div className="col-span-2 space-y-2">
+                  <Label>File</Label>
+                  <Input id={`file-upload-${idx}`} type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={e => {
+                    const file = e.target.files?.[0] || null;
+                    updateOtherDoc(idx, 'file', file);
+                  }} />
                 </div>
                 <Button type="button" size="icon" variant="ghost" className="absolute top-2 right-2" onClick={() => removeOtherDoc(idx)}><X className="h-4 w-4" /></Button>
               </div>
             ))}
           </div>
-        </div>
 
-        <div className="flex justify-end gap-3">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button 
-            className="bg-green-600 hover:bg-green-700"
-            disabled={isUploading}
-            onClick={handleSave}
-          >
-            {isUploading ? 'Processing...' : 'Save Resume'}
-          </Button>
+          {/* Save button */}
+          <div className="pt-4">
+            <Button onClick={handleSave} className="w-full">
+              Save Resume Details
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>

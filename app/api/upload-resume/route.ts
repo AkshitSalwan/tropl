@@ -157,15 +157,30 @@ export async function POST(request: NextRequest) {
   ],
   "education": [
     {
-      "institution": "School/University Name",
-      "degree": "Degree Name",
-      "field": "Field of Study",
-      "year": "Graduation Year as a 4-digit number (e.g., 2020). Look for text like 'graduated', 'completed', 'class of', etc.",
+      "level": "Education level - classify exactly as one of: '10th', '12th', 'diploma', 'bachelor', 'master', 'phd', 'certificate'",
+      "institution": "School/University/College Name",
+      "degree": "Degree Name or Program Name",
+      "field": "Field of Study or Subject",
+      "year": "Graduation/Passing Year as a 4-digit number (e.g., 2020). Look for text like 'graduated', 'completed', 'class of', 'passed', etc.",
       "startYear": "Start year of education if available",
       "endYear": "End/graduation year if available",
-      "score": "GPA/Percentage if mentioned"
+      "score": "GPA/Percentage/CGPA if mentioned",
+      "board": "For 10th/12th, extract the board name like CBSE, ICSE, State Board, etc."
     }
   ],
+  "secondaryEducation": {
+    "institution": "10th standard school name",
+    "board": "Board name for 10th standard (like CBSE, ICSE, State Board)",
+    "year": "Year of passing 10th standard",
+    "percentage": "Percentage or grade obtained in 10th"
+  },
+  "higherSecondaryEducation": {
+    "institution": "12th standard school/college name",
+    "board": "Board name for 12th standard",
+    "stream": "Stream in 12th (like Science, Commerce, Arts)",
+    "year": "Year of passing 12th standard",
+    "percentage": "Percentage or grade obtained in 12th"
+  },
   "certifications": [
     {
       "name": "Certification Name",
