@@ -1,0 +1,21 @@
+John Smith
+Email: john@example.com
+Phone: 555-1234
+Location: New York, NY
+
+EXPERIENCE:
+Sales Manager at ABC Corp (2020-Present)
+- Managed sales team of 10 people
+- Increased revenue by 30%
+- Presented to clients regularly
+
+Marketing Coordinator at XYZ Inc (2018-2020)
+- Created social media campaigns
+- Analyzed market data
+- Coordinated with external vendors
+
+EDUCATION:
+MBA, Harvard University (2018)
+
+SKILLS:
+Leadership, Sales, Marketing, Data Analysis

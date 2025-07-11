@@ -280,6 +280,12 @@ export function AddResumeModal({ open, onOpenChange }: AddResumeModalProps) {
         
         // Debug logging
         console.log('AI Extracted Data:', data);
+        console.log('Education data specifically:', {
+          education: data.education,
+          secondaryEducation: data.secondaryEducation,
+          higherSecondaryEducation: data.higherSecondaryEducation,
+          certifications: data.certifications
+        });
         
         // Format DOB to work with date input if present
         let formattedDob = '';
@@ -361,6 +367,9 @@ export function AddResumeModal({ open, onOpenChange }: AddResumeModalProps) {
         }
 
         // Auto-fill education with enhanced parsing
+        let allEducationEntries: Array<{ degree: string; institution: string; year: string; educationLevel: string }> = [];
+        
+        // Process general education entries
         if (data.education && data.education.length > 0) {
           const mappedEducation = data.education.map((edu: any) => {
             let degree = '';
@@ -448,44 +457,72 @@ export function AddResumeModal({ open, onOpenChange }: AddResumeModalProps) {
             console.log('Mapped education:', { degree, institution, year, educationLevel, original: edu });
             return { degree, institution, year, educationLevel };
           });
-          setEducation(mappedEducation);
+          allEducationEntries = [...mappedEducation];
         }
 
         // Handle specific 10th and 12th standard education details
-        if (data.secondaryEducation || data.higherSecondaryEducation) {
-          let updatedEducation = [...education];
+        if (data.secondaryEducation) {
+          const tenth = {
+            degree: "Secondary School Certificate",
+            institution: data.secondaryEducation.institution || "",
+            year: data.secondaryEducation.year || "",
+            educationLevel: "10th"
+          };
           
-          // Process 10th standard data
-          if (data.secondaryEducation) {
-            const tenth = {
-              degree: "Secondary School Certificate",
-              institution: data.secondaryEducation.institution || "",
-              year: data.secondaryEducation.year || "",
-              educationLevel: "10th"
-            };
+          console.log('Found 10th standard details:', tenth);
+          allEducationEntries.push(tenth);
+        }
+        
+        if (data.higherSecondaryEducation) {
+          const stream = data.higherSecondaryEducation.stream 
+            ? ` (${data.higherSecondaryEducation.stream})`
+            : "";
             
-            console.log('Found 10th standard details:', tenth);
-            updatedEducation = [...updatedEducation, tenth];
-          }
+          const twelfth = {
+            degree: `Higher Secondary Certificate${stream}`,
+            institution: data.higherSecondaryEducation.institution || "",
+            year: data.higherSecondaryEducation.year || "",
+            educationLevel: "12th"
+          };
           
-          // Process 12th standard data
-          if (data.higherSecondaryEducation) {
-            const stream = data.higherSecondaryEducation.stream 
-              ? ` (${data.higherSecondaryEducation.stream})`
-              : "";
-              
-            const twelfth = {
-              degree: `Higher Secondary Certificate${stream}`,
-              institution: data.higherSecondaryEducation.institution || "",
-              year: data.higherSecondaryEducation.year || "",
-              educationLevel: "12th"
-            };
+          console.log('Found 12th standard details:', twelfth);
+          allEducationEntries.push(twelfth);
+        }
+
+        // Handle certifications as additional education entries
+        if (data.certifications && data.certifications.length > 0) {
+          const mappedCertifications = data.certifications.map((cert: any) => {
+            let degree = cert.name || '';
+            let year = cert.year || '';
+            let institution = cert.issuer || cert.organization || '';
+            const educationLevel = 'certificate'; // Set all certifications to certificate level
             
-            console.log('Found 12th standard details:', twelfth);
-            updatedEducation = [...updatedEducation, twelfth];
-          }
-          
-          setEducation(updatedEducation);
+            // Try to extract year from date if year not available
+            if (!year && cert.date) {
+              const dateYear = cert.date.match(/\d{4}/);
+              if (dateYear) {
+                year = dateYear[0];
+              }
+            }
+            
+            // If issuer/organization is not already included in institution and not in degree
+            if (cert.issuer && !institution && !degree.includes(cert.issuer)) {
+              degree = degree ? `${degree} by ${cert.issuer}` : cert.issuer;
+            }
+            
+            console.log('Mapped certification:', { degree, institution, year, educationLevel, original: cert });
+            return { degree, institution, year, educationLevel };
+          });
+          // Add certifications to existing education
+          allEducationEntries = [...allEducationEntries, ...mappedCertifications];
+        }
+
+        // Set all education entries at once
+        if (allEducationEntries.length > 0) {
+          console.log('Setting education entries:', allEducationEntries);
+          setEducation(allEducationEntries);
+        } else {
+          console.log('No education entries found to set');
         }
 
         setUploadStatus({ 

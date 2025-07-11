@@ -239,6 +239,14 @@ Return only the JSON object, no additional text or formatting.`;
           extractedData.skills = [];
         }
         
+        // Debug logging for education data extraction
+        console.log('Successfully parsed AI response. Education data:', {
+          education: extractedData.education,
+          secondaryEducation: extractedData.secondaryEducation,
+          higherSecondaryEducation: extractedData.higherSecondaryEducation,
+          certifications: extractedData.certifications
+        });
+        
       } catch (parseError) {
         console.error('JSON parsing error:', parseError);
         console.error('Raw text that failed to parse:', text);

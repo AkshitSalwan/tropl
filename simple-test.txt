@@ -1,0 +1,4 @@
+John Doe
+Email: john@test.com
+Software Engineer
+Skills: JavaScript, React
