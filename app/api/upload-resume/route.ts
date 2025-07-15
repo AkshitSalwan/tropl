@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
 
     fileName = file.name;
 
-    // Validate file type
+    // Validate file type - check both MIME type and file extension
     const allowedTypes = [
       'application/pdf',
       'application/msword',
@@ -29,8 +29,30 @@ export async function POST(request: NextRequest) {
       'image/png'
     ];
 
-    if (!allowedTypes.includes(file.type)) {
-      return NextResponse.json({ error: 'Invalid file type' }, { status: 400 });
+    const fileExtension = fileName.toLowerCase().split('.').pop();
+    const allowedExtensions = ['pdf', 'doc', 'docx', 'txt', 'jpeg', 'jpg', 'png'];
+
+    // Check both MIME type and file extension for better compatibility
+    const isValidMimeType = allowedTypes.includes(file.type);
+    const isValidExtension = fileExtension && allowedExtensions.includes(fileExtension);
+
+    if (!isValidMimeType && !isValidExtension) {
+      return NextResponse.json({ 
+        error: `Invalid file type. Supported formats: PDF, DOC, DOCX, TXT, JPEG, JPG, PNG. Received: ${file.type} (${fileExtension})` 
+      }, { status: 400 });
+    }
+
+    // Log file information for debugging
+    console.log(`Processing file: ${fileName}, MIME type: ${file.type}, Extension: ${fileExtension}`);
+
+    // Additional file type detection for edge cases
+    console.log(`File details: name=${fileName}, type=${file.type}, size=${file.size} bytes`);
+    
+    // Special handling for files uploaded from different systems that might have incorrect MIME types
+    if (fileExtension === 'docx' && file.type === 'application/octet-stream') {
+      console.log('Detected DOCX file with generic MIME type, proceeding with DOCX processing');
+    } else if (fileExtension === 'doc' && file.type === 'application/octet-stream') {
+      console.log('Detected DOC file with generic MIME type, proceeding with DOC processing');
     }
 
     // Get file buffer
@@ -53,6 +75,7 @@ export async function POST(request: NextRequest) {
       let prompt = '';
       let fileData = null;
 
+      // Determine file processing method based on MIME type and extension
       if (file.type.startsWith('image/') || file.type === 'application/pdf') {
         // For images and PDFs, send directly to Gemini AI
         const base64Data = buffer.toString('base64');
@@ -63,21 +86,148 @@ export async function POST(request: NextRequest) {
           }
         };
         prompt = `Extract all information from this resume ${file.type === 'application/pdf' ? 'PDF' : 'image'} and format it as JSON with the following structure:`;
-      } else if (file.type === 'text/plain') {
+      } else if (file.type === 'text/plain' || fileExtension === 'txt') {
         // For text files, read content directly
         const textContent = buffer.toString('utf-8');
         prompt = `Extract all information from this resume text and format it as JSON with the following structure:\n\nResume content:\n${textContent}\n\n`;
-      } else if (file.type === 'application/msword' || file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
-        // For DOC/DOCX files, extract text using mammoth
+      } else if (file.type === 'application/msword' || 
+                 file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+                 fileExtension === 'doc' || 
+                 fileExtension === 'docx') {
+        // For DOC/DOCX files, extract text using mammoth with enhanced options
         try {
-          const result = await mammoth.extractRawText({ buffer });
-          const textContent = result.value;
-          prompt = `Extract all information from this resume text and format it as JSON with the following structure:\n\nResume content:\n${textContent}\n\n`;
+          console.log('Processing DOCX/DOC file with mammoth...');
+          
+          // First, try simple raw text extraction
+          let textContent = '';
+          let extractionMethod = 'unknown';
+          
+          try {
+            const textResult = await mammoth.extractRawText({ buffer });
+            textContent = textResult.value;
+            extractionMethod = 'raw-text';
+            
+            if (textResult.messages.length > 0) {
+              console.log('Mammoth text extraction messages:', textResult.messages);
+            }
+            
+            console.log(`Raw text extraction: ${textContent.length} characters`);
+          } catch (rawTextError) {
+            console.warn('Raw text extraction failed:', rawTextError);
+          }
+          
+          // If raw text extraction failed or produced insufficient content, try HTML method
+          if (textContent.length < 50) {
+            try {
+              console.log('Trying HTML extraction method...');
+              const htmlResult = await mammoth.convertToHtml({ buffer });
+              const htmlContent = htmlResult.value;
+              extractionMethod = 'html-fallback';
+              
+              if (htmlResult.messages.length > 0) {
+                console.log('Mammoth HTML extraction messages:', htmlResult.messages);
+              }
+              
+              // Enhanced HTML to text conversion with better table handling
+              textContent = htmlContent
+                .replace(/<table[^>]*>/g, '\n--- TABLE START ---\n')
+                .replace(/<\/table>/g, '\n--- TABLE END ---\n')
+                .replace(/<tr[^>]*>/g, '\n')
+                .replace(/<\/tr>/g, '')
+                .replace(/<td[^>]*>/g, ' | ')
+                .replace(/<\/td>/g, '')
+                .replace(/<th[^>]*>/g, ' | ')
+                .replace(/<\/th>/g, '')
+                .replace(/<p[^>]*>/g, '\n')
+                .replace(/<\/p>/g, '')
+                .replace(/<br[^>]*\/?>|<br>/g, '\n')
+                .replace(/<div[^>]*>/g, '\n')
+                .replace(/<\/div>/g, '')
+                .replace(/<h[1-6][^>]*>/g, '\n### ')
+                .replace(/<\/h[1-6]>/g, ' ###\n')
+                .replace(/<li[^>]*>/g, '\n- ')
+                .replace(/<\/li>/g, '')
+                .replace(/<ul[^>]*>|<\/ul>|<ol[^>]*>|<\/ol>/g, '\n')
+                .replace(/<strong[^>]*>|<\/strong>|<b[^>]*>|<\/b>/g, '')
+                .replace(/<em[^>]*>|<\/em>|<i[^>]*>|<\/i>/g, '')
+                .replace(/<[^>]*>/g, ' ')
+                .replace(/&nbsp;/g, ' ')
+                .replace(/&amp;/g, '&')
+                .replace(/&lt;/g, '<')
+                .replace(/&gt;/g, '>')
+                .replace(/&quot;/g, '"')
+                .replace(/&#39;/g, "'")
+                .replace(/&apos;/g, "'")
+                .replace(/\|\s*\|/g, '|')
+                .replace(/\s*\|\s*/g, ' | ')
+                .replace(/\n\s*\n\s*\n/g, '\n\n')
+                .replace(/[ \t]+/g, ' ')
+                .replace(/\n +/g, '\n')
+                .trim();
+              
+              console.log(`HTML extraction: ${textContent.length} characters`);
+            } catch (htmlError) {
+              console.warn('HTML extraction also failed:', htmlError);
+            }
+          }
+          
+          // Final validation
+          if (textContent.length < 20) {
+            // Try one more approach - read as plain text (for very simple docs)
+            try {
+              console.log('Trying plain text fallback...');
+              const plainText = buffer.toString('utf-8');
+              if (plainText.length > textContent.length) {
+                textContent = plainText
+                  .replace(/[^\x20-\x7E\n\r\t]/g, ' ') // Remove non-printable chars
+                  .replace(/\s+/g, ' ')
+                  .trim();
+                extractionMethod = 'plain-text-fallback';
+                console.log(`Plain text fallback: ${textContent.length} characters`);
+              }
+            } catch (plainTextError) {
+              console.warn('Plain text fallback failed:', plainTextError);
+            }
+          }
+          
+          console.log(`Final extracted text (${extractionMethod}): ${textContent.length} characters`);
+          console.log('Text preview:', textContent.substring(0, 300) + '...');
+          
+          // More lenient validation - allow shorter documents
+          if (textContent.length < 10) {
+            throw new Error('Document appears to be empty or completely unreadable. Please try saving the document in a different format (PDF recommended) or ensure the document contains readable text.');
+          }
+          
+          // Check for garbled text (lots of special characters)
+          const specialCharRatio = (textContent.match(/[^\w\s.,!?@()-]/g) || []).length / textContent.length;
+          if (specialCharRatio > 0.5 && textContent.length < 100) {
+            throw new Error('Document content appears to be corrupted or in an unsupported encoding. Please try converting to PDF format.');
+          }
+          
+          prompt = `Extract all information from this resume document (${extractionMethod} extraction from DOCX/DOC format) and format it as JSON with the following structure:\n\nResume content:\n${textContent}\n\n`;
         } catch (docError) {
           console.error('Document parsing error:', docError);
+          
+          // Instead of returning an error, return a success response with fallback
+          // This allows the frontend to handle it gracefully and show manual form
+          const errorMessage = docError instanceof Error ? docError.message : 'Unknown error';
+          
           return NextResponse.json({
-            error: 'Failed to parse Word document. Please try converting to text or image format.'
-          }, { status: 400 });
+            success: true,
+            fileName: fileName,
+            extractedData: {
+              name: '',
+              email: '',
+              phone: '',
+              skills: [],
+              experience: [],
+              education: [],
+              summary: ''
+            },
+            aiProcessed: false,
+            message: `Document parsing failed: ${errorMessage}. Please fill the form manually or try converting your document to PDF format.`,
+            parseError: true
+          });
         }
       } else {
         return NextResponse.json({

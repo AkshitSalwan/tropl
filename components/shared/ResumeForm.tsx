@@ -80,7 +80,7 @@ export function ResumeForm({
   });
 
   const [uploadStatus, setUploadStatus] = useState<{
-    status: 'idle' | 'uploading' | 'success' | 'error';
+    status: 'idle' | 'uploading' | 'success' | 'error' | 'warning';
     message?: string;
   }>({ status: 'idle' });
 
@@ -341,10 +341,21 @@ export function ResumeForm({
       // Process with AI for auto-fill using the uploadSingleFile hook
       const result = await uploadSingleFile(file);
       
-      if (result.success && result.extractedData) {
+      // Handle both successful and failed parsing responses
+      if (result.success) {
         const data = result.extractedData;
         
-        // Debug logging
+        // Check if AI processing was successful
+        if (result.aiProcessed === false || result.parseError) {
+          // AI processing failed or parsing failed, but file was uploaded
+          setUploadStatus({ 
+            status: 'warning', 
+            message: result.message || 'File uploaded successfully, but automatic processing failed. Please fill the form manually.'
+          });
+          return; // Don't try to auto-fill
+        }
+        
+        // Debug logging for successful processing
         console.log('AI Extracted Data:', data);
         console.log('Education data specifically:', {
           education: data.education,
@@ -635,11 +646,13 @@ export function ResumeForm({
         {uploadStatus.status !== 'idle' && (
           <Alert className={uploadStatus.status === 'error' ? 'border-red-200 bg-red-50' : 
                            uploadStatus.status === 'success' ? 'border-green-200 bg-green-50' : 
+                           uploadStatus.status === 'warning' ? 'border-yellow-200 bg-yellow-50' :
                            'border-blue-200 bg-blue-50'}>
             <div className="flex items-center gap-2">
               {uploadStatus.status === 'uploading' && <UploadIcon className="h-4 w-4 animate-spin" />}
               {uploadStatus.status === 'success' && <CheckCircle className="h-4 w-4 text-green-600" />}
               {uploadStatus.status === 'error' && <AlertCircle className="h-4 w-4 text-red-600" />}
+              {uploadStatus.status === 'warning' && <AlertCircle className="h-4 w-4 text-yellow-600" />}
               <AlertDescription>{uploadStatus.message}</AlertDescription>
             </div>
             {uploadStatus.status === 'uploading' && Object.keys(uploadProgress).length > 0 && (

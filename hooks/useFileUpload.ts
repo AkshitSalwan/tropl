@@ -77,6 +77,7 @@ interface UploadResult {
     error?: string;
     aiProcessed?: boolean;
     message?: string;
+    parseError?: boolean;
 }
 
 export function useFileUpload() {
@@ -107,12 +108,36 @@ export function useFileUpload() {
             clearInterval(progressInterval);
             setUploadProgress({ [file.name]: 100 });
 
+            // Handle both successful and error responses from the API
+            const result = await response.json();
+            
             if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.error || 'Upload failed');
+                // Check if it's a document parsing error that should allow fallback
+                if (response.status === 400 && result.error && result.error.includes('Word document')) {
+                    // Return a fallback result for document parsing errors
+                    return {
+                        success: false,
+                        fileName: file.name,
+                        filePath: '',
+                        extractedData: {
+                            name: '',
+                            email: '',
+                            phone: '',
+                            skills: [],
+                            experience: [],
+                            education: [],
+                            summary: ''
+                        },
+                        error: result.error,
+                        aiProcessed: false,
+                        message: result.error + ' You can still fill the form manually.'
+                    };
+                }
+                
+                // For other errors, throw as before
+                throw new Error(result.error || 'Upload failed');
             }
 
-            const result = await response.json();
             return result;
         } catch (error) {
             console.error('Upload error:', error);
