@@ -78,6 +78,9 @@ interface UploadResult {
     aiProcessed?: boolean;
     message?: string;
     parseError?: boolean;
+    retryRecommended?: boolean;
+    estimatedRetryTime?: string;
+    quotaExceeded?: boolean;
 }
 
 export function useFileUpload() {

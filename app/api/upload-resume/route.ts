@@ -361,9 +361,52 @@ CRITICAL SKILL EXTRACTION INSTRUCTIONS:
 
 Return only the JSON object, no additional text or formatting.`;
 
-      const result = fileData
-        ? await model.generateContent([prompt, fileData])
-        : await model.generateContent(prompt);
+      // Enhanced retry logic with exponential backoff for AI overload
+      let result = null;
+      let retryCount = 0;
+      const maxRetries = 3;
+      const baseDelay = 1000; // Start with 1 second
+
+      while (retryCount <= maxRetries) {
+        try {
+          console.log(`AI request attempt ${retryCount + 1}/${maxRetries + 1}`);
+          
+          result = fileData
+            ? await model.generateContent([prompt, fileData])
+            : await model.generateContent(prompt);
+          
+          break; // Success, exit retry loop
+          
+        } catch (retryError) {
+          retryCount++;
+          console.log(`AI request attempt ${retryCount} failed:`, retryError);
+          
+          if (retryError instanceof Error) {
+            const errorMessage = retryError.message.toLowerCase();
+            
+            // Check if it's a retryable error (overload, rate limit, temporary issues)
+            if (errorMessage.includes('overloaded') || 
+                errorMessage.includes('503') ||
+                errorMessage.includes('rate limit') ||
+                errorMessage.includes('temporarily unavailable')) {
+              
+              if (retryCount <= maxRetries) {
+                const delay = baseDelay * Math.pow(2, retryCount - 1); // Exponential backoff
+                console.log(`Retrying in ${delay}ms... (attempt ${retryCount}/${maxRetries})`);
+                await new Promise(resolve => setTimeout(resolve, delay));
+                continue; // Try again
+              }
+            }
+          }
+          
+          // If we've exhausted retries or it's a non-retryable error, throw it
+          throw retryError;
+        }
+      }
+
+      if (!result) {
+        throw new Error('Failed to get AI response after all retry attempts');
+      }
 
       const response = await result.response;
       let text = response.text();
@@ -431,7 +474,7 @@ Return only the JSON object, no additional text or formatting.`;
         const errorMessage = aiError.message.toLowerCase();
         
         if (errorMessage.includes('overloaded') || errorMessage.includes('503')) {
-          // Return fallback response for overloaded API
+          // Enhanced response for overloaded API with better user guidance
           return NextResponse.json({
             success: true,
             fileName: fileName,
@@ -445,7 +488,10 @@ Return only the JSON object, no additional text or formatting.`;
               summary: ''
             },
             aiProcessed: false,
-            message: 'AI service is temporarily overloaded. File uploaded successfully - please fill the form manually. You can try uploading again later for auto-fill.'
+            parseError: true,
+            message: `AI service is temporarily overloaded due to high demand. Your file "${fileName}" was uploaded successfully. Please fill the form manually, or try uploading again in 2-3 minutes for auto-parsing.`,
+            retryRecommended: true,
+            estimatedRetryTime: '2-3 minutes'
           });
         }
         
@@ -463,7 +509,10 @@ Return only the JSON object, no additional text or formatting.`;
               summary: ''
             },
             aiProcessed: false,
-            message: 'AI service quota exceeded. File uploaded successfully - please fill the form manually.'
+            parseError: true,
+            message: `AI service quota exceeded for today. Your file "${fileName}" was uploaded successfully. Please fill the form manually. Auto-parsing will be available again tomorrow.`,
+            retryRecommended: false,
+            quotaExceeded: true
           });
         }
         
@@ -475,7 +524,7 @@ Return only the JSON object, no additional text or formatting.`;
         }
       }
       
-      // Generic AI error - provide fallback
+      // Generic AI error - provide enhanced fallback
       return NextResponse.json({
         success: true,
         fileName: fileName,
@@ -489,6 +538,7 @@ Return only the JSON object, no additional text or formatting.`;
           summary: ''
         },
         aiProcessed: false,
+        parseError: true,
         message: 'AI processing encountered an error. File uploaded successfully - please fill the form manually.',
         error: 'AI processing failed - manual entry available'
       });
@@ -518,6 +568,7 @@ Return only the JSON object, no additional text or formatting.`;
         summary: ''
       },
       aiProcessed: false,
+      parseError: true,
       message: 'File uploaded successfully, but AI processing failed. Please fill the form manually.',
       error: 'AI processing failed, manual entry required'
     });
