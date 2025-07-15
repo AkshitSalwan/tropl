@@ -16,17 +16,37 @@ export default function UploadResumePage() {
   const router = useRouter();
 
   const handleSubmit = async (data: any) => {
-    console.log('Resume saved successfully:', data);
-    
-    setUploadStatus({
-      status: 'success',
-      message: 'Resume uploaded successfully! You can now apply for jobs.'
-    });
+    setIsSubmitting(true);
 
-    // Redirect to dashboard after successful upload
-    setTimeout(() => {
-      router.push('/candidate/dashboard');
-    }, 2000);
+    try {
+      // Submit the data
+      console.log('Form data:', data.formData);
+      console.log('All Skills:', data.skills);
+      console.log('Selected Skills (10):', data.selectedSkills);
+      console.log('Experiences:', data.experiences);
+      console.log('Education:', data.education);
+
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      setUploadStatus({
+        status: 'success',
+        message: 'Resume uploaded successfully! You can now apply for jobs.'
+      });
+
+      // Redirect to dashboard after successful upload
+      setTimeout(() => {
+        router.push('/candidate/dashboard');
+      }, 2000);
+
+    } catch (error) {
+      setUploadStatus({
+        status: 'error',
+        message: 'Failed to upload resume. Please try again.'
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
