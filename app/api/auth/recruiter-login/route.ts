@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { AuthUtils } from '@/lib/auth'
 import { createApiResponse } from '@/lib/validations'
+import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
 
 const loginSchema = z.object({
@@ -14,46 +15,58 @@ export async function POST(request: NextRequest) {
     const validatedData = loginSchema.parse(body)
     const { email, password } = validatedData
 
-    // Hardcoded admin user for now (replace with database lookup later)
-    const adminUser = {
-      id: 'admin-user-id',
-      email: 'admin@tropl.ai',
-      password: 'admin123', // In production, this should be hashed
-      name: 'Admin User',
-      role: 'RECRUITER',
-      verified: true,
-      recruiter: {
-        id: 'admin-recruiter-id',
-        companyName: 'Tropl',
-        department: 'HR',
-        designation: 'Admin',
-        experience: 5,
-      }
-    }
+    // Look up user in database
+    const user = await prisma.user.findUnique({
+      where: { email },
+      include: {
+        recruiter: true,
+      },
+    })
 
-    // Check credentials
-    if (email !== adminUser.email || password !== adminUser.password) {
+    if (!user || user.role !== 'RECRUITER') {
       return NextResponse.json(
         createApiResponse(false, null, '', 'Invalid email or password'),
         { status: 401 }
       )
     }
 
+    // Check password
+    if (user.password) {
+      // For hashed passwords
+      const isValidPassword = await AuthUtils.comparePassword(password, user.password)
+      if (!isValidPassword) {
+        return NextResponse.json(
+          createApiResponse(false, null, '', 'Invalid email or password'),
+          { status: 401 }
+        )
+      }
+    } else {
+      // Temporary fallback for demo - remove in production
+      if (email === 'admin@tropl.ai' && password === 'admin123') {
+        // Allow login for demo user
+      } else {
+        return NextResponse.json(
+          createApiResponse(false, null, '', 'Invalid email or password'),
+          { status: 401 }
+        )
+      }
+    }
+
     // Generate JWT token
     const token = AuthUtils.generateToken({
-      userId: adminUser.id,
-      email: adminUser.email,
-      role: adminUser.role,
+      userId: user.id,
+      email: user.email,
+      role: user.role,
     })
 
     // Prepare user data for response (exclude password)
     const userData = {
-      id: adminUser.id,
-      email: adminUser.email,
-      name: adminUser.name,
-      role: adminUser.role,
-      verified: adminUser.verified,
-      recruiter: adminUser.recruiter,
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      verified: user.verified,
+      recruiter: user.recruiter,
     }
 
     return NextResponse.json(

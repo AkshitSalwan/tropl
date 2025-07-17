@@ -1,7 +1,63 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { withAuth, AuthenticatedRequest } from '@/lib/middleware'
+import { withAuth, withRole, AuthenticatedRequest } from '@/lib/middleware'
 import { updateCandidateSchema, createApiResponse } from '@/lib/validations'
+import { FileUtils } from '@/lib/fileUtils'
+import { z } from 'zod'
+
+// Enhanced schema for comprehensive candidate updates
+const enhancedUpdateCandidateSchema = z.object({
+  // Personal Information
+  firstName: z.string().min(1, 'First name is required').optional(),
+  middleName: z.string().optional(),
+  lastName: z.string().min(1, 'Last name is required').optional(),
+  email: z.string().email('Invalid email format').optional(),
+  phone: z.string().min(1, 'Phone number is required').optional(),
+  dob: z.string().optional(),
+  gender: z.string().optional(),
+  
+  // Contact Information
+  linkedin: z.string().optional(),
+  github: z.string().optional(),
+  
+  // Location Information
+  country: z.string().optional(),
+  state: z.string().optional(),
+  city: z.string().optional(),
+  
+  // Professional Information
+  jobTitle: z.string().optional(),
+  experience: z.string().optional(),
+  expectedSalary: z.string().optional(),
+  currentSalary: z.string().optional(),
+  noticePeriod: z.string().optional(),
+  relocate: z.string().optional(),
+  summary: z.string().optional(),
+  
+  // Skills
+  skills: z.array(z.string()).optional(),
+  selectedSkills: z.array(z.string()).optional(),
+  
+  // ID Information
+  aadhaar: z.string().optional(),
+  pan: z.string().optional(),
+  uan: z.string().optional(),
+  
+  // Employer Information
+  employerName: z.string().optional(),
+  recruiterName: z.string().optional(),
+  recruiterEmail: z.string().optional(),
+  recruiterContact: z.string().optional(),
+  
+  // Complex data arrays
+  experiences: z.array(z.any()).optional(),
+  education: z.array(z.any()).optional(),
+  references: z.array(z.any()).optional(),
+  otherDocuments: z.array(z.any()).optional(),
+  
+  // Resume file URL
+  resumeUrl: z.string().optional(),
+})
 
 // GET /api/candidates/[id] - Get candidate by ID
 export async function GET(
@@ -96,11 +152,12 @@ export const PUT = withAuth(async (
   try {
     const { id } = await params
     const body = await request.json()
-    const validatedData = updateCandidateSchema.parse(body)
+    const validatedData = enhancedUpdateCandidateSchema.parse(body)
 
     // Check if candidate exists and user has permission
     const existingCandidate = await prisma.candidate.findUnique({
       where: { id },
+      include: { user: true }
     })
 
     if (!existingCandidate) {
@@ -120,32 +177,99 @@ export const PUT = withAuth(async (
         createApiResponse(false, null, '', 'Permission denied'),
         { status: 403 }
       )
-    }    // Update candidate
-    const candidate = await prisma.candidate.update({
-      where: { id },
-      data: {
-        ...validatedData,
-        skills: validatedData.skills || undefined,
-        education: validatedData.education ? JSON.stringify(validatedData.education) : undefined,
-        workExperience: validatedData.workExperience ? JSON.stringify(validatedData.workExperience) : undefined,
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            email: true,
-            phone: true,
-            name: true,
-            avatar: true,
+    }
+
+    // Prepare user update data (only what belongs to User model)
+    const userUpdateData: any = {}
+    if (validatedData.email) userUpdateData.email = validatedData.email
+    if (validatedData.phone) userUpdateData.phone = validatedData.phone
+    // Combine names for user.name field
+    if (validatedData.firstName || validatedData.middleName || validatedData.lastName) {
+      const nameParts = [
+        validatedData.firstName || existingCandidate.firstName,
+        validatedData.middleName || existingCandidate.middleName,
+        validatedData.lastName || existingCandidate.lastName
+      ].filter(Boolean)
+      userUpdateData.name = nameParts.join(' ')
+    }
+
+    // Prepare candidate update data (most fields belong to Candidate model)
+    const candidateUpdateData: any = {}
+    if (validatedData.firstName) candidateUpdateData.firstName = validatedData.firstName
+    if (validatedData.middleName) candidateUpdateData.middleName = validatedData.middleName
+    if (validatedData.lastName) candidateUpdateData.lastName = validatedData.lastName
+    if (validatedData.email) candidateUpdateData.email = validatedData.email
+    if (validatedData.phone) candidateUpdateData.phone = validatedData.phone
+    if (validatedData.dob) candidateUpdateData.dob = new Date(validatedData.dob)
+    if (validatedData.gender) candidateUpdateData.gender = validatedData.gender
+    if (validatedData.linkedin) candidateUpdateData.linkedin = validatedData.linkedin
+    if (validatedData.github) candidateUpdateData.github = validatedData.github
+    if (validatedData.country) candidateUpdateData.country = validatedData.country
+    if (validatedData.state) candidateUpdateData.state = validatedData.state
+    if (validatedData.city) candidateUpdateData.city = validatedData.city
+    if (validatedData.jobTitle) candidateUpdateData.jobTitle = validatedData.jobTitle
+    if (validatedData.experience) candidateUpdateData.experience = parseInt(validatedData.experience)
+    if (validatedData.expectedSalary) candidateUpdateData.expectedSalary = parseFloat(validatedData.expectedSalary)
+    if (validatedData.currentSalary) candidateUpdateData.currentSalary = parseFloat(validatedData.currentSalary)
+    if (validatedData.noticePeriod) candidateUpdateData.noticePeriod = validatedData.noticePeriod
+    if (validatedData.relocate) candidateUpdateData.relocate = validatedData.relocate
+    if (validatedData.summary) candidateUpdateData.profileSummary = validatedData.summary
+    if (validatedData.aadhaar) candidateUpdateData.aadhaar = validatedData.aadhaar
+    if (validatedData.pan) candidateUpdateData.pan = validatedData.pan
+    if (validatedData.uan) candidateUpdateData.uan = validatedData.uan
+    if (validatedData.employerName) candidateUpdateData.employerName = validatedData.employerName
+    if (validatedData.recruiterName) candidateUpdateData.recruiterName = validatedData.recruiterName
+    if (validatedData.recruiterEmail) candidateUpdateData.recruiterEmail = validatedData.recruiterEmail
+    if (validatedData.recruiterContact) candidateUpdateData.recruiterContact = validatedData.recruiterContact
+    if (validatedData.resumeUrl) candidateUpdateData.resumeUrl = validatedData.resumeUrl
+
+    // Handle array/object fields with proper assignment
+    if (validatedData.skills) candidateUpdateData.skills = validatedData.skills
+    if (validatedData.selectedSkills) candidateUpdateData.selectedSkills = validatedData.selectedSkills
+    if (validatedData.experiences) candidateUpdateData.experiences = validatedData.experiences
+    if (validatedData.education) candidateUpdateData.education = validatedData.education
+    if (validatedData.references) candidateUpdateData.references = validatedData.references
+    if (validatedData.otherDocuments) candidateUpdateData.otherDocuments = validatedData.otherDocuments
+
+    // Update candidate and user data in a transaction
+    const updatedCandidate = await prisma.$transaction(async (tx) => {
+      // Update user if there's user data to update
+      if (Object.keys(userUpdateData).length > 0) {
+        await tx.user.update({
+          where: { id: existingCandidate.userId },
+          data: userUpdateData
+        })
+      }
+      
+      // Update candidate
+      const candidate = await tx.candidate.update({
+        where: { id },
+        data: candidateUpdateData,
+        include: {
+          user: {
+            select: {
+              id: true,
+              email: true,
+              phone: true,
+              name: true,
+              avatar: true,
+            },
           },
         },
-      },
-    })    // Parse JSON fields for response safely
+      })
+      
+      return candidate
+    })
+
+    // Parse JSON fields for response safely
     const responseCandidate = {
-      ...candidate,
-      skills: typeof candidate.skills === 'string' ? JSON.parse(candidate.skills || '[]') : candidate.skills || [],
-      education: candidate.education && typeof candidate.education === 'string' ? JSON.parse(candidate.education) : candidate.education,
-      workExperience: candidate.workExperience && typeof candidate.workExperience === 'string' ? JSON.parse(candidate.workExperience) : candidate.workExperience,
+      ...updatedCandidate,
+      skills: Array.isArray(updatedCandidate.skills) ? updatedCandidate.skills : (updatedCandidate.skills ? [updatedCandidate.skills] : []),
+      selectedSkills: Array.isArray(updatedCandidate.selectedSkills) ? updatedCandidate.selectedSkills : (updatedCandidate.selectedSkills ? [updatedCandidate.selectedSkills] : []),
+      experiences: updatedCandidate.experiences || [],
+      education: updatedCandidate.education || [],
+      references: updatedCandidate.references || [],
+      otherDocuments: updatedCandidate.otherDocuments || [],
     }
 
     return NextResponse.json(
@@ -153,6 +277,14 @@ export const PUT = withAuth(async (
     )
   } catch (error) {
     console.error('Update candidate error:', error)
+    
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        createApiResponse(false, null, 'Validation failed', JSON.stringify(error.errors)),
+        { status: 400 }
+      )
+    }
+    
     return NextResponse.json(
       createApiResponse(false, null, '', 'Internal server error'),
       { status: 500 }
@@ -167,34 +299,191 @@ export const DELETE = withAuth(async (
 ) => {
   try {
     const { id } = await params
-    // Check if candidate exists
-    const existingCandidate = await prisma.candidate.findUnique({
+    
+    console.log('Deleting candidate:', id);
+
+    // Get the candidate details including user info and resume file
+    const candidate = await prisma.candidate.findUnique({
       where: { id },
+      include: {
+        user: true,
+        applications: true,
+        interviews: true,
+        candidateShares: true,
+      },
     })
 
-    if (!existingCandidate) {
+    if (!candidate) {
       return NextResponse.json(
         createApiResponse(false, null, '', 'Candidate not found'),
         { status: 404 }
       )
     }
 
-    // Check permissions (only admin or owner can delete)
+    // Check permissions (recruiters can delete any candidate, candidates can only delete themselves)
     const userRole = request.user!.role
-    const isOwner = existingCandidate.userId === request.user!.userId
+    const isOwner = candidate.userId === request.user!.userId
+    const isRecruiter = userRole === 'RECRUITER'
 
-    if (!isOwner && userRole !== 'ADMIN') {
+    if (!isOwner && !isRecruiter && userRole !== 'ADMIN') {
       return NextResponse.json(
         createApiResponse(false, null, '', 'Permission denied'),
         { status: 403 }
       )
-    }    // Delete candidate (cascade will handle related records)
-    await prisma.candidate.delete({
-      where: { id },
+    }
+
+    console.log('Found candidate to delete:', {
+      id: candidate.id,
+      email: candidate.email,
+      userId: candidate.userId,
+      resumeUrl: candidate.resumeUrl
+    });
+
+    // Start a transaction to ensure all deletions happen together
+    await prisma.$transaction(async (tx) => {
+      // Delete related records first (due to foreign key constraints)
+      
+      // Delete candidate shares
+      if (candidate.candidateShares.length > 0) {
+        await tx.candidateShare.deleteMany({
+          where: { candidateId: id }
+        })
+        console.log(`Deleted ${candidate.candidateShares.length} candidate shares`);
+      }
+
+      // Delete interviews
+      if (candidate.interviews.length > 0) {
+        await tx.interview.deleteMany({
+          where: { candidateId: id }
+        })
+        console.log(`Deleted ${candidate.interviews.length} interviews`);
+      }
+
+      // Delete job applications
+      if (candidate.applications.length > 0) {
+        await tx.jobApplication.deleteMany({
+          where: { candidateId: id }
+        })
+        console.log(`Deleted ${candidate.applications.length} job applications`);
+      }
+
+      // Delete the candidate profile
+      await tx.candidate.delete({
+        where: { id },
+      })
+      console.log('Deleted candidate profile');
+
+      // Delete the associated user account (only if recruiter is deleting)
+      if (isRecruiter || userRole === 'ADMIN') {
+        await tx.user.delete({
+          where: { id: candidate.userId }
+        })
+        console.log('Deleted user account');
+      }
     })
 
+    // Delete resume file and other documents if they exist
+    if (candidate.resumeUrl) {
+      try {
+        // The resumeUrl could be in different formats:
+        // - "/uploads/resumes/filename.pdf" (public path)
+        // - "uploads/resumes/filename.pdf" (relative path)
+        // - Full URL for cloud storage
+        
+        let filePath = candidate.resumeUrl;
+        
+        // Handle different URL formats
+        if (filePath.startsWith('http://') || filePath.startsWith('https://')) {
+          // Cloud storage URL - extract the path after domain
+          try {
+            const url = new URL(filePath);
+            filePath = url.pathname.startsWith('/') ? url.pathname.substring(1) : url.pathname;
+          } catch (urlError) {
+            console.error('Invalid URL format:', filePath);
+            filePath = candidate.resumeUrl;
+          }
+        } else if (filePath.startsWith('/')) {
+          // Remove leading slash for FileUtils and add public/ prefix if not present
+          filePath = filePath.substring(1);
+        }
+        
+        // Ensure the path includes 'public/' prefix for files stored in public directory
+        if (!filePath.startsWith('public/') && (filePath.startsWith('uploads/') || filePath.includes('/uploads/'))) {
+          filePath = `public/${filePath}`;
+        }
+        
+        // Use FileUtils to delete the file
+        const deleted = FileUtils.deleteFile(filePath);
+        
+        if (deleted) {
+          console.log('Successfully deleted resume file:', filePath);
+        } else {
+          console.log('Resume file not found or already deleted:', filePath);
+        }
+      } catch (fileError) {
+        console.error('Error deleting resume file:', fileError);
+        // Don't fail the entire operation if file deletion fails
+      }
+    }
+
+    // Delete other documents if they exist
+    if (candidate.otherDocuments) {
+      try {
+        let otherDocs = candidate.otherDocuments;
+        
+        // Handle JSON field - it might be string or object
+        if (typeof otherDocs === 'string') {
+          otherDocs = JSON.parse(otherDocs);
+        }
+        
+        if (Array.isArray(otherDocs)) {
+          for (const doc of otherDocs) {
+            if (doc && typeof doc === 'object' && 'fileUrl' in doc) {
+              try {
+                const docObj = doc as { fileUrl?: string };
+                let filePath = docObj.fileUrl;
+                
+                if (!filePath) continue;
+                
+                // Handle different URL formats
+                if (filePath.startsWith('http://') || filePath.startsWith('https://')) {
+                  const url = new URL(filePath);
+                  filePath = url.pathname.startsWith('/') ? url.pathname.substring(1) : url.pathname;
+                } else if (filePath.startsWith('/')) {
+                  filePath = filePath.substring(1);
+                }
+                
+                // Ensure the path includes 'public/' prefix for files stored in public directory
+                if (!filePath.startsWith('public/') && (filePath.startsWith('uploads/') || filePath.includes('/uploads/'))) {
+                  filePath = `public/${filePath}`;
+                }
+                
+                const deleted = FileUtils.deleteFile(filePath);
+                
+                if (deleted) {
+                  console.log('Successfully deleted other document:', filePath);
+                } else {
+                  console.log('Other document not found or already deleted:', filePath);
+                }
+              } catch (docError) {
+                console.error('Error deleting other document:', docError);
+              }
+            }
+          }
+        }
+      } catch (docsError) {
+        console.error('Error processing other documents for deletion:', docsError);
+      }
+    }
+
+    console.log('Successfully deleted candidate and all related data');
+
     return NextResponse.json(
-      createApiResponse(true, null, 'Candidate deleted successfully')
+      createApiResponse(
+        true,
+        { deletedCandidateId: id },
+        'Candidate and all related data deleted successfully'
+      )
     )
   } catch (error) {
     console.error('Delete candidate error:', error)

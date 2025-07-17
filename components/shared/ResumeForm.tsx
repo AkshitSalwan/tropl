@@ -11,23 +11,31 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { X, Plus } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useFileUpload } from "@/hooks/useFileUpload";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { CheckCircle, AlertCircle, Upload as UploadIcon } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
 
 interface ResumeFormProps {
   onSubmit: (data: any) => void;
   submitButtonText?: string;
   isSubmitting?: boolean;
+  isRecruiterAdding?: boolean; // New prop to indicate recruiter is adding candidate
+  editData?: any; // Data to pre-populate form for editing
+  isEditing?: boolean; // Whether this is edit mode
 }
 
 export function ResumeForm({ 
   onSubmit, 
   submitButtonText = "Save Resume Details",
-  isSubmitting = false
+  isSubmitting = false,
+  isRecruiterAdding = false,
+  editData = null,
+  isEditing = false
 }: ResumeFormProps) {
+  const { token } = useAuth();
   const [skills, setSkills] = useState<string[]>([]);
   const [newSkill, setNewSkill] = useState("");
   const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
@@ -79,12 +87,71 @@ export function ResumeForm({
     recruiterContact: ""
   });
 
+  const [uploadedResumeUrl, setUploadedResumeUrl] = useState<string | null>(null);
+
   const [uploadStatus, setUploadStatus] = useState<{
-    status: 'idle' | 'uploading' | 'success' | 'error' | 'warning';
+    status: 'idle' | 'uploading' | 'success' | 'error';
     message?: string;
   }>({ status: 'idle' });
 
   const { uploadSingleFile, isUploading, uploadProgress } = useFileUpload();
+
+  // Populate form with edit data when editing
+  useEffect(() => {
+    if (isEditing && editData) {
+      // Convert candidate data to form data format
+      setFormData({
+        firstName: editData.firstName || "",
+        middleName: editData.middleName || "",
+        lastName: editData.lastName || "",
+        email: editData.email || "",
+        phone: editData.phone || "",
+        linkedin: editData.linkedin || "",
+        github: editData.github || "",
+        jobTitle: editData.jobTitle || "",
+        salary: editData.currentSalary?.toString() || "",
+        expectedSalary: editData.expectedSalary?.toString() || "",
+        noticePeriod: editData.noticePeriod || "",
+        experience: editData.experience?.toString() || "",
+        relocate: editData.relocate || "",
+        summary: editData.profileSummary || editData.summary || "",
+        dob: editData.dob ? new Date(editData.dob).toISOString().split('T')[0] : "",
+        gender: editData.gender || "",
+        country: editData.country || "India",
+        state: editData.state || "",
+        city: editData.city || "",
+        aadhaar: editData.aadhaar || "",
+        pan: editData.pan || "",
+        uan: editData.uan || "",
+        employerName: editData.employerName || "",
+        recruiterName: editData.recruiterName || "",
+        recruiterEmail: editData.recruiterEmail || "",
+        recruiterContact: editData.recruiterContact || ""
+      });
+
+      // Set skills data
+      if (editData.skills) {
+        setSkills(editData.skills);
+      }
+      if (editData.selectedSkills) {
+        setSelectedSkills(editData.selectedSkills);
+      }
+
+      // Set complex data
+      if (editData.experiences) {
+        setExperiences(editData.experiences);
+      }
+      if (editData.education) {
+        setEducation(editData.education);
+      }
+      if (editData.references) {
+        setReferences(editData.references);
+      }
+      if (editData.resumeUrl) {
+        setUploadedResumeUrl(editData.resumeUrl);
+      }
+    }
+  }, [isEditing, editData]);
 
   // Form validation function
   const validateRequiredFields = () => {
@@ -121,6 +188,14 @@ export function ResumeForm({
   };
 
   const handleSubmit = async () => {
+    if (!token) {
+      setUploadStatus({
+        status: 'error',
+        message: 'Please log in to save your resume'
+      });
+      return;
+    }
+
     const missingFields = validateRequiredFields();
     if (missingFields.length > 0) {
       setUploadStatus({
@@ -182,12 +257,34 @@ export function ResumeForm({
         education,
         references,
         otherDocuments,
+        
+        // Resume file URL if uploaded
+        resumeUrl: uploadedResumeUrl,
       };
 
-      const response = await fetch('/api/candidates/resume', {
-        method: 'POST',
+      // Determine API endpoint and method based on mode
+      let apiUrl: string;
+      let method: string;
+
+      if (isEditing && editData) {
+        // Edit mode - update existing candidate
+        apiUrl = isRecruiterAdding 
+          ? `/api/candidates/${editData.id}` 
+          : '/api/candidates/resume';
+        method = 'PUT';
+      } else {
+        // Add mode - create new candidate
+        apiUrl = isRecruiterAdding 
+          ? '/api/candidates/add-by-recruiter' 
+          : '/api/candidates/resume';
+        method = 'POST';
+      }
+
+      const response = await fetch(apiUrl, {
+        method,
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify(submitData),
       });
@@ -335,27 +432,46 @@ export function ResumeForm({
     const file = event.target.files?.[0];
     if (!file) return;
 
-    setUploadStatus({ status: 'uploading', message: 'Processing resume with AI...' });
+    if (!token) {
+      setUploadStatus({
+        status: 'error',
+        message: 'Please log in to upload your resume'
+      });
+      return;
+    }
+
+    setUploadStatus({ status: 'uploading', message: 'Uploading and processing resume with AI...' });
 
     try {
-      // Process with AI for auto-fill using the uploadSingleFile hook
+      // First, upload and save the file
+      const uploadFormData = new FormData();
+      uploadFormData.append('file', file);
+
+      const uploadResponse = await fetch('/api/candidates/upload-resume', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+        body: uploadFormData,
+      });
+
+      if (!uploadResponse.ok) {
+        const uploadError = await uploadResponse.json();
+        throw new Error(uploadError.error || 'Failed to upload file');
+      }
+
+      const uploadResult = await uploadResponse.json();
+      if (uploadResult.success && uploadResult.data?.fileUrl) {
+        setUploadedResumeUrl(uploadResult.data.fileUrl);
+      }
+
+      // Then process with AI for auto-fill using the existing upload-resume API
       const result = await uploadSingleFile(file);
       
-      // Handle both successful and failed parsing responses
-      if (result.success) {
+      if (result.success && result.extractedData) {
         const data = result.extractedData;
         
-        // Check if AI processing was successful
-        if (result.aiProcessed === false || result.parseError) {
-          // AI processing failed or parsing failed, but file was uploaded
-          setUploadStatus({ 
-            status: 'warning', 
-            message: result.message || 'File uploaded successfully, but automatic processing failed. Please fill the form manually.'
-          });
-          return; // Don't try to auto-fill
-        }
-        
-        // Debug logging for successful processing
+        // Debug logging
         console.log('AI Extracted Data:', data);
         console.log('Education data specifically:', {
           education: data.education,
@@ -646,13 +762,11 @@ export function ResumeForm({
         {uploadStatus.status !== 'idle' && (
           <Alert className={uploadStatus.status === 'error' ? 'border-red-200 bg-red-50' : 
                            uploadStatus.status === 'success' ? 'border-green-200 bg-green-50' : 
-                           uploadStatus.status === 'warning' ? 'border-yellow-200 bg-yellow-50' :
                            'border-blue-200 bg-blue-50'}>
             <div className="flex items-center gap-2">
               {uploadStatus.status === 'uploading' && <UploadIcon className="h-4 w-4 animate-spin" />}
               {uploadStatus.status === 'success' && <CheckCircle className="h-4 w-4 text-green-600" />}
               {uploadStatus.status === 'error' && <AlertCircle className="h-4 w-4 text-red-600" />}
-              {uploadStatus.status === 'warning' && <AlertCircle className="h-4 w-4 text-yellow-600" />}
               <AlertDescription>{uploadStatus.message}</AlertDescription>
             </div>
             {uploadStatus.status === 'uploading' && Object.keys(uploadProgress).length > 0 && (
