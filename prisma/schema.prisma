@@ -57,19 +57,61 @@ model Recruiter {
 model Candidate {
   id                String              @id @default(auto()) @map("_id") @db.ObjectId
   userId            String              @unique @db.ObjectId
+  
+  // Personal Information
   firstName         String?
+  middleName        String?
   lastName          String?
+  email             String?
+  phone             String?
+  dob               DateTime?           // Date of birth
+  gender            String?
+  
+  // Contact Information
+  linkedin          String?
+  github            String?
+  
+  // Location Information
+  country           String?
+  state             String?
+  city              String?
+  
+  // Professional Information
   jobTitle          String?
   experience        Int?                // years of experience
   expectedSalary    Float?
   currentSalary     Float?
+  noticePeriod      String?
+  relocate          String?             // "yes" or "no"
+  profileSummary    String?
+  
+  // Skills
+  skills            String[]            // All skills
+  selectedSkills    String[]            // Top 10 selected skills
+  
+  // ID Information  
+  aadhaar           String?
+  pan               String?
+  uan               String?
+  
+  // Employer Information
+  employerName      String?
+  recruiterName     String?
+  recruiterEmail    String?
+  recruiterContact  String?
+  
+  // Complex data as JSON
+  experiences       Json?               // Work experience details
+  education         Json?               // Education details
+  references        Json?               // References details
+  otherDocuments    Json?               // Other documents
+  
+  // Legacy fields for compatibility
   location          String?
-  skills            String[]            // Array of skills
   availability      CandidateAvailability @default(AVAILABLE)
   resumeUrl         String?
-  profileSummary    String?
-  education         Json?               // Education details as JSON
-  workExperience    Json?               // Work experience as JSON
+  workExperience    Json?               // Legacy field - will be migrated to experiences
+  
   createdAt         DateTime            @default(now())
   updatedAt         DateTime            @updatedAt
   

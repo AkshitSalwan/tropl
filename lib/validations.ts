@@ -38,6 +38,85 @@ export const createCandidateSchema = z.object({
 
 export const updateCandidateSchema = createCandidateSchema.partial()
 
+// Resume form validation schema
+export const resumeFormSchema = z.object({
+  // Personal Information
+  firstName: z.string().min(1, 'First name is required'),
+  middleName: z.string().optional(),
+  lastName: z.string().min(1, 'Last name is required'),
+  email: z.string().email('Invalid email format'),
+  phone: z.string().min(1, 'Phone number is required'),
+  dob: z.string().min(1, 'Date of birth is required'),
+  gender: z.string().optional(),
+  
+  // Contact Information
+  linkedin: z.string().optional(),
+  github: z.string().optional(),
+  
+  // Location Information
+  country: z.string().min(1, 'Country is required'),
+  state: z.string().min(1, 'State is required'),
+  city: z.string().min(1, 'City is required'),
+  
+  // Professional Information
+  jobTitle: z.string().optional(),
+  experience: z.string().optional(),
+  expectedSalary: z.string().min(1, 'Expected salary is required'),
+  currentSalary: z.string().min(1, 'Current salary is required'),
+  noticePeriod: z.string().optional(),
+  relocate: z.string().min(1, 'Relocation preference is required'),
+  summary: z.string().optional(),
+  
+  // Skills
+  skills: z.array(z.string()).min(1, 'At least one skill is required'),
+  selectedSkills: z.array(z.string()).length(10, 'Exactly 10 skills must be selected'),
+  
+  // ID Information
+  aadhaar: z.string().optional(),
+  pan: z.string().optional(),
+  uan: z.string().optional(),
+  
+  // Employer Information
+  employerName: z.string().optional(),
+  recruiterName: z.string().optional(),
+  recruiterEmail: z.string().optional(),
+  recruiterContact: z.string().optional(),
+  
+  // Complex data arrays
+  experiences: z.array(z.object({
+    client: z.string(),
+    startMonth: z.string(),
+    startYear: z.string(),
+    endMonth: z.string(),
+    endYear: z.string(),
+    present: z.boolean(),
+    responsibilities: z.string()
+  })).optional(),
+  
+  education: z.array(z.object({
+    degree: z.string(),
+    institution: z.string(),
+    year: z.union([z.string(), z.number()]).transform(val => String(val)),
+    educationLevel: z.string()
+  })).optional(),
+  
+  references: z.array(z.object({
+    name: z.string(),
+    designation: z.string(),
+    email: z.string(),
+    phone: z.string()
+  })).optional(),
+  
+  otherDocuments: z.array(z.object({
+    type: z.string(),
+    name: z.string(),
+    file: z.any().nullable()
+  })).optional(),
+  
+  // Resume file URL
+  resumeUrl: z.string().optional(),
+})
+
 // Client validation schemas
 export const createClientSchema = z.object({
   name: z.string().min(1, 'Company name is required'),
