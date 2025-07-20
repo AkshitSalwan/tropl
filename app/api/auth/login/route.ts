@@ -3,7 +3,6 @@ import { prisma } from '@/lib/prisma'
 import { AuthUtils } from '@/lib/auth'
 import { EmailService } from '@/lib/email'
 import { loginSchema, createApiResponse } from '@/lib/validations'
-import { UserRole } from '@prisma/client'
 
 export async function POST(request: NextRequest) {
   try {
@@ -23,7 +22,7 @@ export async function POST(request: NextRequest) {
       const userData = {
         email: isEmail ? contact : `${contact}@temp.com`, // Temporary email for phone users
         phone: isEmail ? null : contact,
-        role: UserRole.CANDIDATE, // Default role
+        role: 'CANDIDATE' as const, // Default role
         verified: false,
       }
       
