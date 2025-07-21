@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,6 +17,7 @@ import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { CheckCircle, AlertCircle, Upload as UploadIcon } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import { useDebounce } from "use-debounce";
 
 interface ResumeFormProps {
   onSubmit: (data: any) => void;
@@ -39,6 +40,10 @@ export function ResumeForm({
   const [skills, setSkills] = useState<string[]>([]);
   const [newSkill, setNewSkill] = useState("");
   const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
+  
+  // Email validation state
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [isCheckingEmail, setIsCheckingEmail] = useState(false);
 
   // Experiences state
   const [experiences, setExperiences] = useState([
@@ -87,6 +92,9 @@ export function ResumeForm({
     recruiterContact: ""
   });
 
+  // Debounced email for validation
+  const [debouncedEmail] = useDebounce(formData.email, 500);
+
   const [uploadedResumeUrl, setUploadedResumeUrl] = useState<string | null>(null);
   const [pendingResumeFile, setPendingResumeFile] = useState<File | null>(null);
 
@@ -96,6 +104,50 @@ export function ResumeForm({
   }>({ status: 'idle' });
 
   const { uploadSingleFile, isUploading, uploadProgress } = useFileUpload();
+
+  // Email validation function
+  const checkEmailExists = useCallback(async (email: string) => {
+    if (!token || !email) return;
+
+    // Don't validate if it's the initial email in edit mode
+    if (isEditing && editData && email === editData.email) {
+      setEmailError(null);
+      return;
+    }
+
+    setIsCheckingEmail(true);
+    setEmailError(null);
+    try {
+      const response = await fetch('/api/candidates/check-email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ email }),
+      });
+      
+      if (!response.ok) {
+        const result = await response.json();
+        if (response.status === 409) {
+          setEmailError(result.error || "This email is already in use.");
+        }
+      } else {
+        setEmailError(null);
+      }
+    } catch (error) {
+      console.error('Failed to check email:', error);
+    } finally {
+      setIsCheckingEmail(false);
+    }
+  }, [token, isEditing, editData]);
+
+  // Effect to validate email when it changes
+  useEffect(() => {
+    if (debouncedEmail) {
+      checkEmailExists(debouncedEmail);
+    }
+  }, [debouncedEmail, checkEmailExists]);
 
   // Populate form with edit data when editing
   useEffect(() => {
@@ -171,24 +223,97 @@ export function ResumeForm({
     };
 
     const missingFields: string[] = [];
+    const invalidFieldIds: string[] = [];
+    
     for (const [field, label] of Object.entries(requiredFields)) {
       if (!formData[field as keyof typeof formData]) {
         missingFields.push(label);
+        invalidFieldIds.push(field);
       }
     }
 
     if (skills.length === 0) {
       missingFields.push('Key Skills');
+      invalidFieldIds.push('skills-section');
     }
     
     if (selectedSkills.length !== 10) {
       missingFields.push('10 Skills Selection (exactly 10 skills must be selected)');
+      invalidFieldIds.push('selected-skills-section');
     }
 
-    return missingFields;
+    return { missingFields, invalidFieldIds };
+  };
+
+  // Function to scroll to and focus on the first invalid field
+  const scrollToFirstInvalidField = (invalidFieldIds: string[]) => {
+    if (invalidFieldIds.length === 0) return;
+
+    const firstInvalidFieldId = invalidFieldIds[0];
+    const element = document.getElementById(firstInvalidFieldId);
+    
+    if (element) {
+      // Scroll to the element with some offset for better visibility
+      const offsetTop = element.offsetTop - 100;
+      window.scrollTo({
+        top: offsetTop,
+        behavior: 'smooth'
+      });
+
+      // Focus and highlight the element
+      setTimeout(() => {
+        if (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA') {
+          element.focus();
+          // Add a highlight effect for input elements
+          element.style.borderColor = '#ef4444';
+          element.style.boxShadow = '0 0 0 3px rgba(239, 68, 68, 0.1)';
+          
+          // Remove highlight after 3 seconds
+          setTimeout(() => {
+            element.style.borderColor = '';
+            element.style.boxShadow = '';
+          }, 3000);
+        } else if (element.tagName === 'BUTTON' || element.getAttribute('role') === 'combobox') {
+          // For Select components (Radix UI renders as button with role="combobox")
+          element.focus();
+          // Add a highlight effect for select elements
+          element.style.outline = '2px solid #ef4444';
+          element.style.outlineOffset = '2px';
+          
+          // Remove highlight after 3 seconds
+          setTimeout(() => {
+            element.style.outline = '';
+            element.style.outlineOffset = '';
+          }, 3000);
+        } else {
+          // For other elements like sections, add a subtle background highlight
+          element.style.backgroundColor = 'rgba(239, 68, 68, 0.05)';
+          element.style.border = '2px solid rgba(239, 68, 68, 0.2)';
+          element.style.borderRadius = '4px';
+          element.style.padding = '8px';
+          
+          // Remove highlight after 3 seconds
+          setTimeout(() => {
+            element.style.backgroundColor = '';
+            element.style.border = '';
+            element.style.borderRadius = '';
+            element.style.padding = '';
+          }, 3000);
+        }
+      }, 500);
+    }
   };
 
   const handleSubmit = async () => {
+    // Check for email validation errors first
+    if (emailError) {
+      setUploadStatus({
+        status: 'error',
+        message: emailError
+      });
+      return;
+    }
+
     if (!token) {
       setUploadStatus({
         status: 'error',
@@ -197,11 +322,14 @@ export function ResumeForm({
       return;
     }
 
-    const missingFields = validateRequiredFields();
-    if (missingFields.length > 0) {
+    const validationResult = validateRequiredFields();
+    if (validationResult.missingFields.length > 0) {
+      // Scroll to the first invalid field
+      scrollToFirstInvalidField(validationResult.invalidFieldIds);
+      
       setUploadStatus({
         status: 'error',
-        message: `Please fill the following required fields: ${missingFields.join(', ')}`
+        message: `Please fill the following required fields: ${validationResult.missingFields.join(', ')}`
       });
       return;
     }
@@ -466,6 +594,15 @@ export function ResumeForm({
   const handleResumeUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
+
+    // Check for email validation errors before allowing file upload
+    if (emailError) {
+      setUploadStatus({
+        status: 'error',
+        message: 'Please correct the email error before uploading a resume.'
+      });
+      return;
+    }
 
     if (!token) {
       setUploadStatus({
@@ -907,7 +1044,7 @@ export function ResumeForm({
           <div className="space-y-2">
             <Label htmlFor="country">Country<span className="text-red-500">*</span></Label>
             <Select value={formData.country} onValueChange={(value) => updateFormData('country', value)}>
-              <SelectTrigger>
+              <SelectTrigger id="country">
                 <SelectValue placeholder="Select country" />
               </SelectTrigger>
               <SelectContent>
@@ -918,7 +1055,7 @@ export function ResumeForm({
           <div className="space-y-2">
             <Label htmlFor="state">State<span className="text-red-500">*</span></Label>
             <Select value={formData.state} onValueChange={(value) => updateFormData('state', value)}>
-              <SelectTrigger>
+              <SelectTrigger id="state">
                 <SelectValue placeholder="Select state" />
               </SelectTrigger>
               <SelectContent>
@@ -954,6 +1091,8 @@ export function ResumeForm({
               value={formData.email}
               onChange={(e) => updateFormData('email', e.target.value)}
             />
+            {isCheckingEmail && <p className="text-xs text-gray-500">Checking email...</p>}
+            {emailError && <p className="text-xs text-red-500">{emailError}</p>}
           </div>
           <div className="space-y-2">
             <Label htmlFor="phone">Contact Number<span className="text-red-500">*</span></Label>
@@ -1031,7 +1170,7 @@ export function ResumeForm({
           <div className="space-y-2">
             <Label htmlFor="relocate">Open to Relocation<span className="text-red-500">*</span></Label>
             <Select value={formData.relocate} onValueChange={(value) => updateFormData('relocate', value)}>
-              <SelectTrigger>
+              <SelectTrigger id="relocate">
                 <SelectValue placeholder="Select option" />
               </SelectTrigger>
               <SelectContent>
@@ -1060,7 +1199,7 @@ export function ResumeForm({
       </div>
 
       {/* Skills */}
-      <div className="space-y-4">
+      <div className="space-y-4" id="skills-section">
         <h3 className="text-lg font-medium">Key Skills<span className="text-red-500">*</span></h3>
         <div className="space-y-2">
           <div className="flex gap-2">
@@ -1100,7 +1239,7 @@ export function ResumeForm({
           </div>
           
           {/* Skills selection instructions */}
-          <Alert className={skills.length > 0 ? 'border-blue-200 bg-blue-50' : 'border-red-200 bg-red-50'}>
+          <Alert className={skills.length > 0 ? 'border-blue-200 bg-blue-50' : 'border-red-200 bg-red-50'} id="selected-skills-section">
             <div className="text-sm">
               <p className="font-semibold">
                 Please select exactly 10 skills from the list above by clicking on them.
