@@ -54,6 +54,7 @@ interface JobSeeker {
     phone: string;
     name: string;
     avatar?: string;
+    createdAt: string;
   };
   _count: {
     applications: number;
@@ -415,6 +416,7 @@ export function JobSeekersTable({ filters }: JobSeekersTableProps) {
             <TableHead>Contact Info</TableHead>
             <TableHead>Skills</TableHead>
             <TableHead>Location</TableHead>
+            <TableHead>Date Created</TableHead>
             <TableHead className="text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
@@ -459,6 +461,11 @@ export function JobSeekersTable({ filters }: JobSeekersTableProps) {
                 </div>
               </TableCell>
               <TableCell>{formatLocation(seeker)}</TableCell>
+              <TableCell>
+                <div className="text-sm text-gray-600">
+                  {format(new Date(seeker.user.createdAt), 'MMM dd, yyyy')}
+                </div>
+              </TableCell>
               <TableCell>
                 <div className="flex justify-end gap-2">
                   <Button variant="ghost" size="icon" className="h-8 w-8">

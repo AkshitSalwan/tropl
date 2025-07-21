@@ -220,10 +220,17 @@ export const POST = withRole(['RECRUITER'], async (request: AuthenticatedRequest
       email: candidate.email
     });
 
+    // Format candidate data for response
+    const responseCandidate = {
+      ...candidate,
+      // Format DOB as yyyy-mm-dd for frontend display
+      dob: candidate.dob ? candidate.dob.toISOString().split('T')[0] : null,
+    };
+
     return NextResponse.json(
       createApiResponse(
         true, 
-        candidate, 
+        responseCandidate, 
         'Candidate added successfully'
       ),
       { status: 201 }

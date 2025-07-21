@@ -78,10 +78,16 @@ export const GET = withAuth(async (request: AuthenticatedRequest) => {
 
     const totalPages = Math.ceil(total / limit)
 
+    // Format DOB in all candidates for consistent frontend display
+    const formattedCandidates = candidates.map(candidate => ({
+      ...candidate,
+      dob: candidate.dob ? candidate.dob.toISOString().split('T')[0] : null,
+    }))
+
     return NextResponse.json(
       createApiResponse(
         true,
-        candidates,
+        formattedCandidates,
         'Candidates retrieved successfully',
         undefined,
         { page, limit, total, totalPages }
