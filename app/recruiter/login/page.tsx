@@ -148,16 +148,6 @@ export default function RecruiterLoginPage() {
                 {isLoading ? 'Signing in...' : 'Sign In'}
               </Button>
             </form>
-
-            <div className="mt-6">
-              <div className="bg-primary/10 p-4 rounded-lg">
-                <h4 className="text-sm font-medium text-primary mb-2">Demo Credentials:</h4>
-                <p className="text-xs text-primary/80">
-                  Email: admin@tropl.ai<br />
-                  Password: admin123
-                </p>
-              </div>
-            </div>
           </CardContent>
         </Card>
 
