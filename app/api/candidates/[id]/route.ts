@@ -9,45 +9,45 @@ import { z } from 'zod'
 const enhancedUpdateCandidateSchema = z.object({
   // Personal Information
   firstName: z.string().min(1, 'First name is required').optional(),
-  middleName: z.string().optional(),
+  middleName: z.string().nullable().optional(),
   lastName: z.string().min(1, 'Last name is required').optional(),
   email: z.string().email('Invalid email format').optional(),
   phone: z.string().min(1, 'Phone number is required').optional(),
-  dob: z.string().optional(),
-  gender: z.string().optional(),
+  dob: z.string().nullable().optional(),
+  gender: z.string().nullable().optional(),
   
   // Contact Information
-  linkedin: z.string().optional(),
-  github: z.string().optional(),
+  linkedin: z.string().nullable().optional(),
+  github: z.string().nullable().optional(),
   
   // Location Information
-  country: z.string().optional(),
-  state: z.string().optional(),
-  city: z.string().optional(),
+  country: z.string().nullable().optional(),
+  state: z.string().nullable().optional(),
+  city: z.string().nullable().optional(),
   
   // Professional Information
-  jobTitle: z.string().optional(),
-  experience: z.string().optional(),
-  expectedSalary: z.string().optional(),
-  currentSalary: z.string().optional(),
-  noticePeriod: z.string().optional(),
-  relocate: z.string().optional(),
-  summary: z.string().optional(),
+  jobTitle: z.string().nullable().optional(),
+  experience: z.string().nullable().optional(),
+  expectedSalary: z.string().nullable().optional(),
+  currentSalary: z.string().nullable().optional(),
+  noticePeriod: z.string().nullable().optional(),
+  relocate: z.string().nullable().optional(),
+  summary: z.string().nullable().optional(),
   
   // Skills
   skills: z.array(z.string()).optional(),
   selectedSkills: z.array(z.string()).optional(),
   
   // ID Information
-  aadhaar: z.string().optional(),
-  pan: z.string().optional(),
-  uan: z.string().optional(),
+  aadhaar: z.string().nullable().optional(),
+  pan: z.string().nullable().optional(),
+  uan: z.string().nullable().optional(),
   
   // Employer Information
-  employerName: z.string().optional(),
-  recruiterName: z.string().optional(),
-  recruiterEmail: z.string().optional(),
-  recruiterContact: z.string().optional(),
+  employerName: z.string().nullable().optional(),
+  recruiterName: z.string().nullable().optional(),
+  recruiterEmail: z.string().nullable().optional(),
+  recruiterContact: z.string().nullable().optional(),
   
   // Complex data arrays
   experiences: z.array(z.any()).optional(),
@@ -56,7 +56,7 @@ const enhancedUpdateCandidateSchema = z.object({
   otherDocuments: z.array(z.any()).optional(),
   
   // Resume file URL
-  resumeUrl: z.string().optional(),
+  resumeUrl: z.string().nullable().optional(),
 })
 
 // GET /api/candidates/[id] - Get candidate by ID
@@ -127,6 +127,8 @@ export async function GET(
     }    // Parse JSON fields safely
     const responseCandidate = {
       ...candidate,
+      // Format DOB as yyyy-mm-dd for frontend display
+      dob: candidate.dob ? candidate.dob.toISOString().split('T')[0] : null,
       skills: typeof candidate.skills === 'string' ? JSON.parse(candidate.skills || '[]') : candidate.skills || [],
       education: candidate.education && typeof candidate.education === 'string' ? JSON.parse(candidate.education) : candidate.education,
       workExperience: candidate.workExperience && typeof candidate.workExperience === 'string' ? JSON.parse(candidate.workExperience) : candidate.workExperience,
@@ -152,6 +154,15 @@ export const PUT = withAuth(async (
   try {
     const { id } = await params
     const body = await request.json()
+    
+    // Log the incoming data for debugging
+    console.log('PUT /api/candidates/[id] - Incoming data:', {
+      id,
+      bodyKeys: Object.keys(body),
+      resumeUrl: body.resumeUrl,
+      resumeUrlType: typeof body.resumeUrl
+    })
+    
     const validatedData = enhancedUpdateCandidateSchema.parse(body)
 
     // Check if candidate exists and user has permission
@@ -196,32 +207,32 @@ export const PUT = withAuth(async (
     // Prepare candidate update data (most fields belong to Candidate model)
     const candidateUpdateData: any = {}
     if (validatedData.firstName) candidateUpdateData.firstName = validatedData.firstName
-    if (validatedData.middleName) candidateUpdateData.middleName = validatedData.middleName
+    if ('middleName' in validatedData) candidateUpdateData.middleName = validatedData.middleName
     if (validatedData.lastName) candidateUpdateData.lastName = validatedData.lastName
     if (validatedData.email) candidateUpdateData.email = validatedData.email
     if (validatedData.phone) candidateUpdateData.phone = validatedData.phone
-    if (validatedData.dob) candidateUpdateData.dob = new Date(validatedData.dob)
-    if (validatedData.gender) candidateUpdateData.gender = validatedData.gender
-    if (validatedData.linkedin) candidateUpdateData.linkedin = validatedData.linkedin
-    if (validatedData.github) candidateUpdateData.github = validatedData.github
-    if (validatedData.country) candidateUpdateData.country = validatedData.country
-    if (validatedData.state) candidateUpdateData.state = validatedData.state
-    if (validatedData.city) candidateUpdateData.city = validatedData.city
-    if (validatedData.jobTitle) candidateUpdateData.jobTitle = validatedData.jobTitle
-    if (validatedData.experience) candidateUpdateData.experience = parseInt(validatedData.experience)
-    if (validatedData.expectedSalary) candidateUpdateData.expectedSalary = parseFloat(validatedData.expectedSalary)
-    if (validatedData.currentSalary) candidateUpdateData.currentSalary = parseFloat(validatedData.currentSalary)
-    if (validatedData.noticePeriod) candidateUpdateData.noticePeriod = validatedData.noticePeriod
-    if (validatedData.relocate) candidateUpdateData.relocate = validatedData.relocate
-    if (validatedData.summary) candidateUpdateData.profileSummary = validatedData.summary
-    if (validatedData.aadhaar) candidateUpdateData.aadhaar = validatedData.aadhaar
-    if (validatedData.pan) candidateUpdateData.pan = validatedData.pan
-    if (validatedData.uan) candidateUpdateData.uan = validatedData.uan
-    if (validatedData.employerName) candidateUpdateData.employerName = validatedData.employerName
-    if (validatedData.recruiterName) candidateUpdateData.recruiterName = validatedData.recruiterName
-    if (validatedData.recruiterEmail) candidateUpdateData.recruiterEmail = validatedData.recruiterEmail
-    if (validatedData.recruiterContact) candidateUpdateData.recruiterContact = validatedData.recruiterContact
-    if (validatedData.resumeUrl) candidateUpdateData.resumeUrl = validatedData.resumeUrl
+    if ('dob' in validatedData && validatedData.dob) candidateUpdateData.dob = new Date(validatedData.dob)
+    if ('gender' in validatedData) candidateUpdateData.gender = validatedData.gender
+    if ('linkedin' in validatedData) candidateUpdateData.linkedin = validatedData.linkedin
+    if ('github' in validatedData) candidateUpdateData.github = validatedData.github
+    if ('country' in validatedData) candidateUpdateData.country = validatedData.country
+    if ('state' in validatedData) candidateUpdateData.state = validatedData.state
+    if ('city' in validatedData) candidateUpdateData.city = validatedData.city
+    if ('jobTitle' in validatedData) candidateUpdateData.jobTitle = validatedData.jobTitle
+    if ('experience' in validatedData && validatedData.experience) candidateUpdateData.experience = parseInt(validatedData.experience)
+    if ('expectedSalary' in validatedData && validatedData.expectedSalary) candidateUpdateData.expectedSalary = parseFloat(validatedData.expectedSalary)
+    if ('currentSalary' in validatedData && validatedData.currentSalary) candidateUpdateData.currentSalary = parseFloat(validatedData.currentSalary)
+    if ('noticePeriod' in validatedData) candidateUpdateData.noticePeriod = validatedData.noticePeriod
+    if ('relocate' in validatedData) candidateUpdateData.relocate = validatedData.relocate
+    if ('summary' in validatedData) candidateUpdateData.profileSummary = validatedData.summary
+    if ('aadhaar' in validatedData) candidateUpdateData.aadhaar = validatedData.aadhaar
+    if ('pan' in validatedData) candidateUpdateData.pan = validatedData.pan
+    if ('uan' in validatedData) candidateUpdateData.uan = validatedData.uan
+    if ('employerName' in validatedData) candidateUpdateData.employerName = validatedData.employerName
+    if ('recruiterName' in validatedData) candidateUpdateData.recruiterName = validatedData.recruiterName
+    if ('recruiterEmail' in validatedData) candidateUpdateData.recruiterEmail = validatedData.recruiterEmail
+    if ('recruiterContact' in validatedData) candidateUpdateData.recruiterContact = validatedData.recruiterContact
+    if ('resumeUrl' in validatedData) candidateUpdateData.resumeUrl = validatedData.resumeUrl
 
     // Handle array/object fields with proper assignment
     if (validatedData.skills) candidateUpdateData.skills = validatedData.skills
@@ -264,6 +275,8 @@ export const PUT = withAuth(async (
     // Parse JSON fields for response safely
     const responseCandidate = {
       ...updatedCandidate,
+      // Format DOB as yyyy-mm-dd for frontend display
+      dob: updatedCandidate.dob ? updatedCandidate.dob.toISOString().split('T')[0] : null,
       skills: Array.isArray(updatedCandidate.skills) ? updatedCandidate.skills : (updatedCandidate.skills ? [updatedCandidate.skills] : []),
       selectedSkills: Array.isArray(updatedCandidate.selectedSkills) ? updatedCandidate.selectedSkills : (updatedCandidate.selectedSkills ? [updatedCandidate.selectedSkills] : []),
       experiences: updatedCandidate.experiences || [],
