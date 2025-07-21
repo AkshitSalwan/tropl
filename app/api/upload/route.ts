@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { withAuth, AuthenticatedRequest } from '@/lib/middleware'
-import { FileUtils, ALLOWED_FILE_TYPES, MAX_FILE_SIZE } from '@/lib/fileUtils'
 import { createApiResponse } from '@/lib/validations'
+import { uploadFileToSupabase, generateFilePath } from '@/lib/supabase'
 
 // Apply authentication middleware and export as POST
 export const POST = withAuth(async (request: AuthenticatedRequest) => {
@@ -22,69 +22,73 @@ export const POST = withAuth(async (request: AuthenticatedRequest) => {
     const uploadedFiles = []
 
     for (const file of files) {
+      // Define allowed file types and max sizes
+      const allowedTypes = [
+        'application/pdf',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'text/plain',
+        'image/jpeg',
+        'image/jpg',
+        'image/png'
+      ]
+      const maxSize = 10 * 1024 * 1024 // 10MB
+
       // Validate file type
-      const allowedTypes = uploadType === 'RESUME' ? ALLOWED_FILE_TYPES.RESUME : ALLOWED_FILE_TYPES.DOCUMENT
-      if (!FileUtils.isValidFileType(file.name, allowedTypes)) {
+      if (!allowedTypes.includes(file.type)) {
         return NextResponse.json(
-          createApiResponse(false, null, '', `Invalid file type for ${file.name}. Allowed types: ${allowedTypes.join(', ')}`),
+          createApiResponse(false, null, '', `Invalid file type for ${file.name}. Allowed types: PDF, DOC, DOCX, TXT, JPG, PNG`),
           { status: 400 }
         )
       }
 
       // Validate file size
-      const maxSize = uploadType === 'RESUME' ? MAX_FILE_SIZE.RESUME : MAX_FILE_SIZE.DOCUMENT
       if (file.size > maxSize) {
         return NextResponse.json(
-          createApiResponse(false, null, '', `File ${file.name} is too large. Maximum size: ${FileUtils.formatFileSize(maxSize)}`),
+          createApiResponse(false, null, '', `File ${file.name} is too large. Maximum size: 10MB`),
           { status: 400 }
         )
       }
 
       try {
-        // Save file to disk
-        const { fileName, filePath, fileSize } = await FileUtils.saveFile(file, uploadType.toLowerCase())
+        // Generate unique file path for Supabase storage
+        const filePath = generateFilePath(userId, file.name)
+        
+        // Upload file to Supabase storage
+        const { url: publicUrl, error: uploadError } = await uploadFileToSupabase(
+          file, 
+          'resumes', // bucket name
+          filePath
+        )
+
+        if (uploadError) {
+          console.error('Supabase upload error:', uploadError)
+          return NextResponse.json(
+            createApiResponse(false, null, '', `Upload failed for ${file.name}: ${uploadError}`),
+            { status: 500 }
+          )
+        }
 
         // Save file record to database
         const resumeFile = await prisma.resumeFile.create({
           data: {
             originalName: file.name,
-            fileName,
-            filePath,
-            fileSize,
+            fileName: filePath.split('/').pop() || file.name,
+            filePath: publicUrl,
+            fileSize: file.size,
             mimeType: file.type,
             uploadedBy: userId,
-            status: 'PROCESSING',
+            status: 'COMPLETED',
           },
         })
-
-        // Background task: Extract text from file
-        FileUtils.extractTextFromFile(filePath, file.type)
-          .then(async (extractedText) => {
-            await prisma.resumeFile.update({
-              where: { id: resumeFile.id },
-              data: {
-                extractedText,
-                status: 'COMPLETED',
-              },
-            })
-          })
-          .catch(async (error) => {
-            console.error('Text extraction failed:', error)
-            await prisma.resumeFile.update({
-              where: { id: resumeFile.id },
-              data: {
-                status: 'FAILED',
-              },
-            })
-          })
 
         uploadedFiles.push({
           id: resumeFile.id,
           originalName: file.name,
-          fileName,
-          fileSize,
+          fileName: resumeFile.fileName,
+          fileSize: file.size,
           mimeType: file.type,
-          status: 'PROCESSING',
+          status: 'COMPLETED',
           uploadedAt: resumeFile.createdAt,
         })
       } catch (error) {

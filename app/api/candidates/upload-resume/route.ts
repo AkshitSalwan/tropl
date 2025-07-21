@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { withAuth, AuthenticatedRequest } from '@/lib/middleware';
 import { createApiResponse } from '@/lib/validations';
-import { promises as fs } from 'fs';
-import path from 'path';
+import { uploadFileToSupabase, generateFilePath } from '@/lib/supabase';
 
 // POST /api/candidates/upload-resume - Upload and save resume file
 export const POST = withAuth(async (request: AuthenticatedRequest) => {
@@ -57,33 +56,29 @@ export const POST = withAuth(async (request: AuthenticatedRequest) => {
       );
     }
 
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-
-    // Create uploads directory if it doesn't exist
-    const uploadsDir = path.join(process.cwd(), 'public', 'uploads', 'resumes');
+    // Generate unique file path for Supabase storage
+    const filePath = generateFilePath(userId, file.name);
     
-    try {
-      await fs.access(uploadsDir);
-    } catch {
-      await fs.mkdir(uploadsDir, { recursive: true });
+    // Upload file to Supabase storage
+    const { url: publicUrl, error: uploadError } = await uploadFileToSupabase(
+      file, 
+      'resumes', // bucket name
+      filePath
+    );
+
+    if (uploadError) {
+      console.error('Supabase upload error:', uploadError);
+      return NextResponse.json(
+        createApiResponse(false, null, '', `File upload failed: ${uploadError}`),
+        { status: 500 }
+      );
     }
-
-    // Generate unique filename
-    const timestamp = Date.now();
-    const originalName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-    const fileName = `${userId}_${timestamp}_${originalName}`;
-    const filePath = path.join(uploadsDir, fileName);
-    const publicUrl = `/uploads/resumes/${fileName}`;
-
-    // Save file to disk
-    await fs.writeFile(filePath, buffer);
 
     // Save file record to database
     const resumeFile = await prisma.resumeFile.create({
       data: {
         originalName: file.name,
-        fileName,
+        fileName: filePath.split('/').pop() || file.name,
         filePath: publicUrl,
         fileSize: file.size,
         mimeType: file.type,

@@ -3,7 +3,6 @@ import { prisma } from '@/lib/prisma'
 import { withRole, AuthenticatedRequest } from '@/lib/middleware'
 import { createApiResponse } from '@/lib/validations'
 import { z } from 'zod'
-import { UserRole } from '@prisma/client'
 
 // Resume form validation schema for recruiter adding candidates
 const recruiterAddCandidateSchema = z.object({
@@ -80,8 +79,8 @@ const recruiterAddCandidateSchema = z.object({
     file: z.any().nullable()
   })).optional(),
   
-  // Resume file URL
-  resumeUrl: z.string().optional(),
+  // Resume file URL - handle null values
+  resumeUrl: z.string().optional().nullable().transform(val => val || undefined),
 })
 
 // POST /api/candidates/add-by-recruiter - Create candidate by recruiter
@@ -125,7 +124,7 @@ export const POST = withRole(['RECRUITER'], async (request: AuthenticatedRequest
         data: {
           name: `${validatedData.firstName} ${validatedData.lastName}`.trim(),
           phone: validatedData.phone,
-          role: UserRole.CANDIDATE,
+          role: 'CANDIDATE',
         },
       })
     } else {
@@ -135,7 +134,7 @@ export const POST = withRole(['RECRUITER'], async (request: AuthenticatedRequest
           email: validatedData.email,
           phone: validatedData.phone,
           name: `${validatedData.firstName} ${validatedData.lastName}`.trim(),
-          role: UserRole.CANDIDATE,
+          role: 'CANDIDATE',
           verified: true, // Candidates added by recruiters are pre-verified
         },
       })

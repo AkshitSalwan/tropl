@@ -1,3 +1,4 @@
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,7 +12,6 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { X, Plus } from "lucide-react";
-import { useState, useEffect } from "react";
 import { useFileUpload } from "@/hooks/useFileUpload";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -88,6 +88,7 @@ export function ResumeForm({
   });
 
   const [uploadedResumeUrl, setUploadedResumeUrl] = useState<string | null>(null);
+  const [pendingResumeFile, setPendingResumeFile] = useState<File | null>(null);
 
   const [uploadStatus, setUploadStatus] = useState<{
     status: 'idle' | 'uploading' | 'success' | 'error';
@@ -208,6 +209,37 @@ export function ResumeForm({
     setUploadStatus({ status: 'uploading', message: 'Saving resume data...' });
 
     try {
+      // First, upload the resume file if there's a pending file
+      if (pendingResumeFile && !uploadedResumeUrl) {
+        setUploadStatus({ status: 'uploading', message: 'Uploading resume file...' });
+        
+        const uploadFormData = new FormData();
+        uploadFormData.append('file', pendingResumeFile);
+
+        const uploadResponse = await fetch('/api/candidates/upload-resume', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+          body: uploadFormData,
+        });
+
+        if (!uploadResponse.ok) {
+          const uploadError = await uploadResponse.json();
+          throw new Error(uploadError.error || 'Failed to upload resume file');
+        }
+
+        const uploadResult = await uploadResponse.json();
+        if (uploadResult.success && uploadResult.data?.fileUrl) {
+          setUploadedResumeUrl(uploadResult.data.fileUrl);
+        }
+        
+        // Clear the pending file since it's now uploaded
+        setPendingResumeFile(null);
+        
+        setUploadStatus({ status: 'uploading', message: 'Saving resume data...' });
+      }
+
       // Prepare data in the format expected by the API
       const submitData = {
         // Personal Information
@@ -296,6 +328,9 @@ export function ResumeForm({
       }
 
       if (result.success) {
+        // Clear pending file since it's now saved
+        setPendingResumeFile(null);
+        
         setUploadStatus({
           status: 'success',
           message: result.message || 'Resume saved successfully!'
@@ -440,32 +475,18 @@ export function ResumeForm({
       return;
     }
 
-    setUploadStatus({ status: 'uploading', message: 'Uploading and processing resume with AI...' });
+    // Clear any existing uploaded URL if user is selecting a new file
+    if (uploadedResumeUrl) {
+      setUploadedResumeUrl(null);
+    }
+
+    setUploadStatus({ status: 'uploading', message: 'Processing resume with AI...' });
 
     try {
-      // First, upload and save the file
-      const uploadFormData = new FormData();
-      uploadFormData.append('file', file);
+      // Store the file temporarily (don't save to server yet)
+      setPendingResumeFile(file);
 
-      const uploadResponse = await fetch('/api/candidates/upload-resume', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-        body: uploadFormData,
-      });
-
-      if (!uploadResponse.ok) {
-        const uploadError = await uploadResponse.json();
-        throw new Error(uploadError.error || 'Failed to upload file');
-      }
-
-      const uploadResult = await uploadResponse.json();
-      if (uploadResult.success && uploadResult.data?.fileUrl) {
-        setUploadedResumeUrl(uploadResult.data.fileUrl);
-      }
-
-      // Then process with AI for auto-fill using the existing upload-resume API
+      // Process with AI for auto-fill using the existing upload-resume API
       const result = await uploadSingleFile(file);
       
       if (result.success && result.extractedData) {
@@ -726,7 +747,7 @@ export function ResumeForm({
             data.education?.length || 0
           } education entries, and ${
             data.certifications?.length || 0
-          } certifications.`
+          } certifications. File will be saved when you click "Save Resume Details".`
         });
       }
     } catch (error) {
@@ -793,6 +814,40 @@ export function ResumeForm({
           <div className="text-xs text-gray-500">
             Supported: PDF, DOC, DOCX, TXT, JPG, PNG
           </div>
+          
+          {/* Show pending file status */}
+          {pendingResumeFile && (
+            <div className="flex items-center gap-2 p-2 bg-yellow-50 border border-yellow-200 rounded-md">
+              <UploadIcon className="h-4 w-4 text-yellow-600" />
+              <div className="flex-1">
+                <div className="text-sm font-medium text-yellow-800">
+                  File selected: {pendingResumeFile.name}
+                </div>
+                <div className="text-xs text-yellow-600">
+                  File will be saved when you click "Save Resume Details"
+                </div>
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setPendingResumeFile(null)}
+                className="text-yellow-600 hover:text-yellow-800"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
+          
+          {/* Show uploaded file status */}
+          {uploadedResumeUrl && !pendingResumeFile && (
+            <div className="flex items-center gap-2 p-2 bg-green-50 border border-green-200 rounded-md">
+              <CheckCircle className="h-4 w-4 text-green-600" />
+              <div className="text-sm font-medium text-green-800">
+                Resume file uploaded successfully
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
