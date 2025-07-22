@@ -934,24 +934,26 @@ export function ResumeForm({
         // Handle certifications as additional education entries
         if (data.certifications && data.certifications.length > 0) {
           const mappedCertifications = data.certifications.map((cert: any) => {
-            let degree = cert.name || '';
-            let year = cert.year || '';
-            let institution = cert.issuer || cert.organization || '';
+            // Coerce all fields to string to avoid TypeErrors
+            let degree = String(cert.name || '');
+            let year = String(cert.year || '');
+            let institution = String(cert.issuer || cert.organization || '');
             const educationLevel = 'certificate'; // Set all certifications to certificate level
-            
+
             // Try to extract year from date if year not available
             if (!year && cert.date) {
-              const dateYear = cert.date.match(/\d{4}/);
+              const dateStr = String(cert.date);
+              const dateYear = dateStr.match(/\d{4}/);
               if (dateYear) {
                 year = dateYear[0];
               }
             }
-            
+
             // If issuer/organization is not already included in institution and not in degree
-            if (cert.issuer && !institution && !degree.includes(cert.issuer)) {
-              degree = degree ? `${degree} by ${cert.issuer}` : cert.issuer;
+            if (cert.issuer && !institution && !degree.includes(String(cert.issuer))) {
+              degree = degree ? `${degree} by ${String(cert.issuer)}` : String(cert.issuer);
             }
-            
+
             console.log('Mapped certification:', { degree, institution, year, educationLevel, original: cert });
             return { degree, institution, year, educationLevel };
           });
