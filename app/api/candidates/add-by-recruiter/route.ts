@@ -52,9 +52,9 @@ const recruiterAddCandidateSchema = z.object({
   experiences: z.array(z.object({
     client: z.string(),
     startMonth: z.string(),
-    startYear: z.string(),
+    startYear: z.union([z.string(), z.number()]).transform(val => String(val)),
     endMonth: z.string(),
-    endYear: z.string(),
+    endYear: z.union([z.string(), z.number()]).transform(val => String(val)),
     present: z.boolean(),
     responsibilities: z.string()
   })).optional(),
@@ -104,9 +104,22 @@ export const POST = withRole(['RECRUITER'], async (request: AuthenticatedRequest
 
     if (existingUser && existingUser.candidate) {
       return NextResponse.json(
-        createApiResponse(false, null, '', 'A candidate with this email already exists'),
+        createApiResponse(false, null, 'A candidate with this email already exists'),
         { status: 400 }
       )
+    }
+
+    // Extra check: If user exists, check for candidate by userId
+    if (existingUser) {
+      const existingCandidateByUserId = await prisma.candidate.findUnique({
+        where: { userId: existingUser.id },
+      })
+      if (existingCandidateByUserId) {
+        return NextResponse.json(
+          createApiResponse(false, null, 'A candidate profile for this user already exists'),
+          { status: 400 }
+        )
+      }
     }
 
     // Convert string values to appropriate types
