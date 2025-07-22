@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import React, { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,6 +37,7 @@ export function ResumeForm({
   editData = null,
   isEditing = false
 }: ResumeFormProps) {
+  const formRef = React.useRef<HTMLDivElement>(null);
   const { token } = useAuth();
   const [skills, setSkills] = useState<string[]>([]);
   const [newSkill, setNewSkill] = useState("");
@@ -396,6 +398,10 @@ export function ResumeForm({
   };
 
   const handleSubmit = async () => {
+    // Scroll to top of the form when save is clicked
+    if (formRef.current) {
+      formRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
     // Check for email validation errors first
     if (emailError) {
       setUploadStatus({
@@ -1017,7 +1023,7 @@ export function ResumeForm({
   ];
 
   return (
-    <div className="space-y-6 py-4">
+    <div ref={formRef} className="space-y-6 py-4">
       {/* Resume upload with AI processing */}
       <div className="space-y-4">
         <h3 className="text-lg font-medium">Resume (AI Processing Enabled)</h3>
