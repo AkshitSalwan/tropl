@@ -45,6 +45,16 @@ export function ResumeForm({
   const [emailError, setEmailError] = useState<string | null>(null);
   const [isCheckingEmail, setIsCheckingEmail] = useState(false);
 
+  // Name validation state
+  const [nameErrors, setNameErrors] = useState({
+    firstName: '',
+    middleName: '',
+    lastName: ''
+  });
+
+  // Phone validation state
+  const [phoneError, setPhoneError] = useState<string | null>(null);
+
   // Experiences state
   const [experiences, setExperiences] = useState([
     { client: "", startMonth: "", startYear: "", endMonth: "", endYear: "", present: false, responsibilities: "" }
@@ -106,8 +116,36 @@ export function ResumeForm({
   const { uploadSingleFile, isUploading, uploadProgress } = useFileUpload();
 
   // Email validation function
+  // Enhanced email validation function
+  const validateEmailFormat = (email: string) => {
+    // Only alphabets, numbers, one @, no spaces, proper domain
+    // Regex: ^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$
+    // - Only one @
+    // - No spaces
+    // - Domain must be at least 2 chars (.com, .org, etc)
+    const emailPattern = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
+    if (!email) return true;
+    if (email.includes(' ')) {
+      setEmailError('Please enter a valid email address');
+      return false;
+    }
+    if ((email.match(/@/g) || []).length !== 1) {
+      setEmailError('Please enter a valid email address');
+      return false;
+    }
+    if (!emailPattern.test(email)) {
+      setEmailError('Please enter a valid email address');
+      return false;
+    }
+    setEmailError(null);
+    return true;
+  };
+
   const checkEmailExists = useCallback(async (email: string) => {
     if (!token || !email) return;
+
+    // Validate format first
+    if (!validateEmailFormat(email)) return;
 
     // Don't validate if it's the initial email in edit mode
     if (isEditing && editData && email === editData.email) {
@@ -141,6 +179,44 @@ export function ResumeForm({
       setIsCheckingEmail(false);
     }
   }, [token, isEditing, editData]);
+
+  // Name validation function
+  const validateNameField = (field: 'firstName' | 'middleName' | 'lastName', value: string) => {
+    const alphabetPattern = /^[A-Za-z\s]*$/;
+    
+    if (value && !alphabetPattern.test(value)) {
+      setNameErrors(prev => ({
+        ...prev,
+        [field]: 'please enter a valid name'
+      }));
+      return false;
+    } else {
+      setNameErrors(prev => ({
+        ...prev,
+        [field]: ''
+      }));
+      return true;
+    }
+  };
+
+  // Phone validation function
+  const validatePhoneField = (value: string) => {
+    // Allow digits, +, spaces, and dashes only
+    const phonePattern = /^[+\d\s-]*$/;
+    // Extract only digits for length validation
+    const digitsOnly = value.replace(/[^0-9]/g, '');
+    
+    if (value && !phonePattern.test(value)) {
+      setPhoneError('Please enter a valid phone number');
+      return false;
+    } else if (value && (digitsOnly.length < 10 || digitsOnly.length > 15)) {
+      setPhoneError('Phone number must contain minimum 10 digits');
+      return false;
+    } else {
+      setPhoneError(null);
+      return true;
+    }
+  };
 
   // Effect to validate email when it changes
   useEffect(() => {
@@ -230,6 +306,21 @@ export function ResumeForm({
         missingFields.push(label);
         invalidFieldIds.push(field);
       }
+    }
+
+    // Check for name validation errors
+    const hasNameErrors = Object.values(nameErrors).some(error => error !== '');
+    if (hasNameErrors) {
+      missingFields.push('Name fields contain invalid characters');
+      if (nameErrors.firstName) invalidFieldIds.push('firstName');
+      if (nameErrors.middleName) invalidFieldIds.push('middleName');
+      if (nameErrors.lastName) invalidFieldIds.push('lastName');
+    }
+
+    // Check for phone validation errors
+    if (phoneError) {
+      missingFields.push('Phone number is invalid');
+      invalidFieldIds.push('phone');
     }
 
     if (skills.length === 0) {
@@ -843,24 +934,26 @@ export function ResumeForm({
         // Handle certifications as additional education entries
         if (data.certifications && data.certifications.length > 0) {
           const mappedCertifications = data.certifications.map((cert: any) => {
-            let degree = cert.name || '';
-            let year = cert.year || '';
-            let institution = cert.issuer || cert.organization || '';
+            // Coerce all fields to string to avoid TypeErrors
+            let degree = String(cert.name || '');
+            let year = String(cert.year || '');
+            let institution = String(cert.issuer || cert.organization || '');
             const educationLevel = 'certificate'; // Set all certifications to certificate level
-            
+
             // Try to extract year from date if year not available
             if (!year && cert.date) {
-              const dateYear = cert.date.match(/\d{4}/);
+              const dateStr = String(cert.date);
+              const dateYear = dateStr.match(/\d{4}/);
               if (dateYear) {
                 year = dateYear[0];
               }
             }
-            
+
             // If issuer/organization is not already included in institution and not in degree
-            if (cert.issuer && !institution && !degree.includes(cert.issuer)) {
-              degree = degree ? `${degree} by ${cert.issuer}` : cert.issuer;
+            if (cert.issuer && !institution && !degree.includes(String(cert.issuer))) {
+              degree = degree ? `${degree} by ${String(cert.issuer)}` : String(cert.issuer);
             }
-            
+
             console.log('Mapped certification:', { degree, institution, year, educationLevel, original: cert });
             return { degree, institution, year, educationLevel };
           });
@@ -897,6 +990,18 @@ export function ResumeForm({
   };
 
   const updateFormData = (field: string, value: string) => {
+    // Validate name fields
+    if (field === 'firstName' || field === 'middleName' || field === 'lastName') {
+      validateNameField(field as 'firstName' | 'middleName' | 'lastName', value);
+    }
+    // Validate phone field
+    if (field === 'phone') {
+      validatePhoneField(value);
+    }
+    // Validate email field
+    if (field === 'email') {
+      validateEmailFormat(value);
+    }
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
@@ -907,7 +1012,8 @@ export function ResumeForm({
 
   // Add state and city options
   const stateOptions = [
-    "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh", "Goa", "Gujarat", "Haryana", "Himachal Pradesh", "Jharkhand", "Karnataka", "Kerala", "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu", "Telangana", "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal", "Delhi", "Puducherry", "Jammu and Kashmir", "Ladakh"
+    "Andaman and Nicobar Islands", "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chandigarh", "Chhattisgarh", "Dadra and Nagar Haveli and Daman and Diu", "Delhi", "Goa", "Gujarat", "Haryana", "Himachal Pradesh", "Jammu and Kashmir", "Jharkhand", "Karnataka", "Kerala", "Ladakh", "Lakshadweep", "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Puducherry", "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu", "Telangana", "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal"
+
   ];
 
   return (
@@ -999,7 +1105,11 @@ export function ResumeForm({
               required 
               value={formData.firstName}
               onChange={(e) => updateFormData('firstName', e.target.value)}
+              className={nameErrors.firstName ? 'border-red-500' : ''}
             />
+            {nameErrors.firstName && (
+              <p className="text-xs text-red-500">{nameErrors.firstName}</p>
+            )}
           </div>
           <div className="space-y-2">
             <Label htmlFor="middleName">Middle Name</Label>
@@ -1007,7 +1117,11 @@ export function ResumeForm({
               id="middleName" 
               value={formData.middleName}
               onChange={(e) => updateFormData('middleName', e.target.value)}
+              className={nameErrors.middleName ? 'border-red-500' : ''}
             />
+            {nameErrors.middleName && (
+              <p className="text-xs text-red-500">{nameErrors.middleName}</p>
+            )}
           </div>
           <div className="space-y-2">
             <Label htmlFor="lastName">Last Name<span className="text-red-500">*</span></Label>
@@ -1016,7 +1130,11 @@ export function ResumeForm({
               required 
               value={formData.lastName}
               onChange={(e) => updateFormData('lastName', e.target.value)}
+              className={nameErrors.lastName ? 'border-red-500' : ''}
             />
+            {nameErrors.lastName && (
+              <p className="text-xs text-red-500">{nameErrors.lastName}</p>
+            )}
           </div>
           <div className="space-y-2 col-span-1">
             <Label htmlFor="dob">Date of Birth<span className="text-red-500">*</span></Label>
@@ -1102,7 +1220,12 @@ export function ResumeForm({
               required 
               value={formData.phone}
               onChange={(e) => updateFormData('phone', e.target.value)}
+              className={phoneError ? 'border-red-500' : ''}
+              placeholder="Enter phone number"
             />
+            {phoneError && (
+              <p className="text-xs text-red-500">{phoneError}</p>
+            )}
           </div>
           <div className="space-y-2">
             <Label htmlFor="linkedin">LinkedIn</Label>

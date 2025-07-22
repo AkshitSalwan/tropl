@@ -36,6 +36,11 @@ export function AddVendorModal({ open, onOpenChange, onVendorAdded }: AddVendorM
   const [step, setStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [nameErrors, setNameErrors] = useState({
+    name: '',
+    contactPerson: ''
+  });
+  const [phoneError, setPhoneError] = useState<string | null>(null);
   const [formData, setFormData] = useState<VendorFormData>({
     name: '',
     contactPerson: '',
@@ -48,7 +53,53 @@ export function AddVendorModal({ open, onOpenChange, onVendorAdded }: AddVendorM
   });
   const { token } = useAuth();
 
+  const validateNameField = (field: 'name' | 'contactPerson', value: string) => {
+    const alphabetPattern = /^[A-Za-z\s]*$/;
+    
+    if (value && !alphabetPattern.test(value)) {
+      setNameErrors(prev => ({
+        ...prev,
+        [field]: 'please enter a valid name'
+      }));
+      return false;
+    } else {
+      setNameErrors(prev => ({
+        ...prev,
+        [field]: ''
+      }));
+      return true;
+    }
+  };
+
+  // Phone validation function
+  const validatePhoneField = (value: string) => {
+    // Allow digits, +, spaces, and dashes only
+    const phonePattern = /^[+\d\s-]*$/;
+    // Extract only digits for length validation
+    const digitsOnly = value.replace(/[^0-9]/g, '');
+    
+    if (value && !phonePattern.test(value)) {
+      setPhoneError('Please enter a valid phone number');
+      return false;
+    } else if (value && (digitsOnly.length < 10 || digitsOnly.length > 15)) {
+      setPhoneError('Phone number must contain minimum 10 digits');
+      return false;
+    } else {
+      setPhoneError(null);
+      return true;
+    }
+  };
+
   const handleInputChange = (field: keyof VendorFormData, value: string | number | string[]) => {
+    if ((field === 'name' || field === 'contactPerson') && typeof value === 'string') {
+      validateNameField(field, value);
+    }
+    
+    // Validate phone field
+    if (field === 'phone' && typeof value === 'string') {
+      validatePhoneField(value);
+    }
+    
     setFormData(prev => ({
       ...prev,
       [field]: value
@@ -81,6 +132,20 @@ export function AddVendorModal({ open, onOpenChange, onVendorAdded }: AddVendorM
       setError('Please enter a valid email address');
       return false;
     }
+    
+    // Check for name validation errors
+    const hasNameErrors = Object.values(nameErrors).some(error => error !== '');
+    if (hasNameErrors) {
+      setError('Please correct the name field errors');
+      return false;
+    }
+    
+    // Check for phone validation errors
+    if (phoneError) {
+      setError('Please correct the phone number field');
+      return false;
+    }
+    
     return true;
   };
 
@@ -205,7 +270,11 @@ export function AddVendorModal({ open, onOpenChange, onVendorAdded }: AddVendorM
                     value={formData.name}
                     onChange={(e) => handleInputChange('name', e.target.value)}
                     required
+                    className={nameErrors.name ? 'border-red-500' : ''}
                   />
+                  {nameErrors.name && (
+                    <p className="text-xs text-red-500">{nameErrors.name}</p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="contactPerson">Contact Person*</Label>
@@ -215,7 +284,11 @@ export function AddVendorModal({ open, onOpenChange, onVendorAdded }: AddVendorM
                     value={formData.contactPerson}
                     onChange={(e) => handleInputChange('contactPerson', e.target.value)}
                     required
+                    className={nameErrors.contactPerson ? 'border-red-500' : ''}
                   />
+                  {nameErrors.contactPerson && (
+                    <p className="text-xs text-red-500">{nameErrors.contactPerson}</p>
+                  )}
                 </div>
               </div>
               <div className="space-y-2">
@@ -269,7 +342,11 @@ export function AddVendorModal({ open, onOpenChange, onVendorAdded }: AddVendorM
                   placeholder="Enter phone number"
                   value={formData.phone}
                   onChange={(e) => handleInputChange('phone', e.target.value)}
+                  className={phoneError ? 'border-red-500' : ''}
                 />
+                {phoneError && (
+                  <p className="text-xs text-red-500">{phoneError}</p>
+                )}
               </div>
             </div>
           )}

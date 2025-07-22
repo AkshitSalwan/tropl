@@ -17,8 +17,9 @@ async function main() {
       return
     }
 
-    // Hash the admin password
-    const hashedPassword = await bcrypt.hash('admin123', 12)
+    // Hash the admin password - keeping simple for now
+    const adminPassword = process.env.ADMIN_PASSWORD || 'admin123'
+    const hashedPassword = await bcrypt.hash(adminPassword, 12)
 
     // Create admin user with recruiter role
     const adminUser = await prisma.user.create({

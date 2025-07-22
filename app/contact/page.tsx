@@ -21,13 +21,36 @@ export default function ContactPage() {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [nameError, setNameError] = useState('');
+
+  const validateNameField = (value: string) => {
+    const alphabetPattern = /^[A-Za-z\s]*$/;
+    
+    if (value && !alphabetPattern.test(value)) {
+      setNameError('please enter a valid name');
+      return false;
+    } else {
+      setNameError('');
+      return true;
+    }
+  };
 
   const handleInputChange = (field: string, value: string) => {
+    if (field === 'name') {
+      validateNameField(value);
+    }
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validate name field before submission
+    const isNameValid = validateNameField(formData.name);
+    if (!isNameValid) {
+      return;
+    }
+    
     setIsSubmitting(true);
 
     try {
@@ -171,7 +194,11 @@ export default function ContactPage() {
                         onChange={(e) => handleInputChange('name', e.target.value)}
                         placeholder="John Doe"
                         required
+                        className={nameError ? 'border-red-500' : ''}
                       />
+                      {nameError && (
+                        <p className="text-xs text-red-500 mt-1">{nameError}</p>
+                      )}
                     </div>
                     
                     <div>
