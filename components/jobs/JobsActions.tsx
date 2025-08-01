@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { CreateJobModal } from "@/components/jobs/CreateJobModal";
 
-export function JobsActions() {
+export function JobsActions({ onJobCreated }: { onJobCreated?: (newJob: any) => void }) {
   const [showCreateModal, setShowCreateModal] = useState(false);
 
   return (
@@ -19,7 +19,9 @@ export function JobsActions() {
       <CreateJobModal 
         open={showCreateModal} 
         onOpenChange={setShowCreateModal} 
+        mode="create"
+        onJobCreated={onJobCreated}
       />
     </div>
   );
-} 
+}

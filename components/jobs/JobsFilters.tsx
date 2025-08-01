@@ -1,54 +1,62 @@
 import { Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { useState } from "react";
 
-export function JobsFilters() {
+interface JobsFiltersProps {
+  onSearch: (filters: { query: string }) => void;
+}
+
+export function JobsFilters({ onSearch }: JobsFiltersProps) {
+  const [jobCode, setJobCode] = useState("");
+  const [title, setTitle] = useState("");
+  const [location, setLocation] = useState("");
+
+  // Combine all fields into a single query string for backend
+  const buildQuery = () => {
+    // Only include non-empty fields, join with space
+    return [jobCode, title, location].filter(Boolean).join(" ");
+  };
+
   return (
     <div className="flex flex-col md:flex-row gap-4 flex-1">
-      <div className="flex-1">
-        <Input placeholder="Search Title/Client ID/Job Code" />
+      {/* Job Code Search */}
+      <div className="relative flex-1">
+        <Input
+          className="pl-9 pr-2"
+          placeholder="Job Code"
+          value={jobCode}
+          onChange={e => setJobCode(e.target.value)}
+        />
+        <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400 pointer-events-none" />
       </div>
-      <Select defaultValue="all">
-        <SelectTrigger className="w-[180px]">
-          <SelectValue placeholder="All" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">All</SelectItem>
-          <SelectItem value="active">Active</SelectItem>
-          <SelectItem value="closed">Closed</SelectItem>
-        </SelectContent>
-      </Select>
-      <Select defaultValue="open">
-        <SelectTrigger className="w-[180px]">
-          <SelectValue placeholder="Status" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="open">OPEN</SelectItem>
-          <SelectItem value="closed">CLOSED</SelectItem>
-          <SelectItem value="on-hold">ON HOLD</SelectItem>
-        </SelectContent>
-      </Select>
-      <Select>
-        <SelectTrigger className="w-[180px]">
-          <SelectValue placeholder="Select VMS" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="vms1">VMS 1</SelectItem>
-          <SelectItem value="vms2">VMS 2</SelectItem>
-          <SelectItem value="vms3">VMS 3</SelectItem>
-        </SelectContent>
-      </Select>
-      <Button className="flex items-center mr-4">
+      {/* Title Search */}
+      <div className="relative flex-1">
+        <Input
+          className="pl-9 pr-2"
+          placeholder="Title"
+          value={title}
+          onChange={e => setTitle(e.target.value)}
+        />
+        <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400 pointer-events-none" />
+      </div>
+      {/* Location Search */}
+      <div className="relative flex-1">
+        <Input
+          className="pl-9 pr-2"
+          placeholder="Location"
+          value={location}
+          onChange={e => setLocation(e.target.value)}
+        />
+        <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400 pointer-events-none" />
+      </div>
+      <Button
+        className="flex items-center mr-4"
+        onClick={() => onSearch({ query: buildQuery() })}
+      >
         <Search className="w-4 h-4 mr-2" />
         Search
       </Button>
     </div>
   );
-} 
+}

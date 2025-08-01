@@ -166,38 +166,35 @@ model Vendor {
 }
 
 model Job {
-  id                    String              @id @default(auto()) @map("_id") @db.ObjectId
-  jobCode               String              @unique
-  clientJobId           String?
-  title                 String
-  description           String?
-  requirements          String[]            // Required skills/qualifications
-  location              String?
-  jobType               JobType             @default(FULL_TIME)
-  experienceLevel       ExperienceLevel     @default(MID_LEVEL)
-  minSalary             Float?
-  maxSalary             Float?
-  currency              String              @default("USD")
-  status                JobStatus           @default(OPEN)
-  priority              JobPriority         @default(MEDIUM)
-  openings              Int                 @default(1)
-  filledPositions       Int                 @default(0)
-  
-  // Relationships
-  clientId              String              @db.ObjectId
-  client                Client              @relation(fields: [clientId], references: [id])
-  vendorId              String?             @db.ObjectId
-  vendor                Vendor?             @relation(fields: [vendorId], references: [id])
-  recruiterId           String              @db.ObjectId
-  recruiter             Recruiter           @relation(fields: [recruiterId], references: [id])
-  
-  applications          JobApplication[]
-  interviews            Interview[]
-  
-  createdAt             DateTime            @default(now())
-  updatedAt             DateTime            @updatedAt
-  closedAt              DateTime?
-  
+  id                String      @id @default(auto()) @map("_id") @db.ObjectId
+  jobTitle          String
+  city              String
+  state             String
+  country           String
+  department        String?
+  industryType      String?
+  description       String
+  experienceRequired String
+  educationUG       String
+  educationPG       String?
+  additionalSkills  String?
+  salaryPerAnnum    String
+  keySkills         String
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  recruiterId       String?     @db.ObjectId
+  clientId          String?     @db.ObjectId
+  vendorId          String?     @db.ObjectId
+
+  recruiter         Recruiter?  @relation(fields: [recruiterId], references: [id])
+  client            Client?     @relation(fields: [clientId], references: [id])
+  vendor            Vendor?     @relation(fields: [vendorId], references: [id])
+
+  applications      JobApplication[]
+  interviews        Interview[]
+  jobCode           String
+
   @@map("jobs")
 }
 
@@ -323,6 +320,7 @@ enum ClientStatus {
   INACTIVE
   PROSPECT
 }
+
 
 enum VendorStatus {
   ACTIVE

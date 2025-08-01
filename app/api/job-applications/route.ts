@@ -82,7 +82,9 @@ export const GET = withAuth(async (request: AuthenticatedRequest) => {
               firstName: true,
               lastName: true,
               jobTitle: true,
-              location: true,
+              city: true,
+              state: true,
+              country: true,
               experience: true,
               user: {
                 select: {
@@ -97,9 +99,10 @@ export const GET = withAuth(async (request: AuthenticatedRequest) => {
             select: {
               id: true,
               jobCode: true,
-              title: true,
-              location: true,
-              jobType: true,
+              jobTitle: true,
+              city: true,
+              state: true,
+              country: true,
               client: {
                 select: {
                   name: true,
@@ -176,12 +179,13 @@ export const POST = withAuth(async (request: AuthenticatedRequest) => {
       )
     }
 
-    if (job.status !== 'OPEN') {
-      return NextResponse.json(
-        createApiResponse(false, null, '', 'Job is not open for applications'),
-        { status: 400 }
-      )
-    }
+    // if (job.status !== 'OPEN') {
+    //   ... handle status logic if you add a status field to Job model ...
+    //   return NextResponse.json(
+    //     createApiResponse(false, null, '', 'Job is not open for applications'),
+    //     { status: 400 }
+    //   )
+    // }
 
     // Check if already applied
     const existingApplication = await prisma.jobApplication.findUnique({
@@ -229,7 +233,7 @@ export const POST = withAuth(async (request: AuthenticatedRequest) => {
           select: {
             id: true,
             jobCode: true,
-            title: true,
+              jobTitle: true,
             client: {
               select: {
                 name: true,

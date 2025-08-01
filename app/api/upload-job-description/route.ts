@@ -102,7 +102,7 @@ export async function POST(request: NextRequest) {
   "requirements": {
     "education": "Educational requirements",
     "skills": [
-      "List of required technical and soft skills"
+      "List of required technical and soft skills (all skills except those specifically under 'Additional Skills')"
     ],
     "experience": "Experience requirements details",
     "certifications": [
@@ -126,12 +126,17 @@ export async function POST(request: NextRequest) {
   "industryType": "Industry type/sector",
   "companySize": "Company size if mentioned",
   "jobCode": "Job code/reference number if mentioned",
-  "summary": "A comprehensive summary of the job posting including key highlights, main responsibilities, and ideal candidate profile"
+  "summary": "A comprehensive summary of the job posting including key highlights, main responsibilities, and ideal candidate profile",
+  "additionalSkills": [
+    "List of additional skills ONLY IF they are specifically mentioned under a section or heading called 'Additional Skills' in the document. If not present, leave this as an empty array."
+  ]
 }
 
 IMPORTANT INSTRUCTIONS:
 - Extract information exactly as written in the job description
 - For skills, include both technical skills (programming languages, tools, frameworks) and soft skills
+- For the 'additionalSkills' field, ONLY extract skills if they are specifically mentioned under a section or heading called 'Additional Skills' in the document. If not present, leave this as an empty array. Do NOT duplicate skills from the main skills list here unless they are under 'Additional Skills'.
+- All other skills should be included under 'requirements.skills' (key skills).
 - For location, carefully determine if the job is remote, hybrid, or onsite based on the description
 - For salary, extract the exact range mentioned, don't make assumptions
 - For experience level, categorize based on years of experience mentioned

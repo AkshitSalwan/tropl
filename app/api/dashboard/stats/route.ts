@@ -32,7 +32,7 @@ export const GET = withAuth(async (request: AuthenticatedRequest) => {
         prisma.vendor.count(),
         prisma.jobApplication.count(),
         prisma.interview.count(),
-        prisma.job.count({ where: { status: 'OPEN' } }),
+        prisma.job.count(),
         prisma.jobApplication.count({ where: { status: 'SELECTED' } }),
       ])
 
@@ -75,7 +75,7 @@ export const GET = withAuth(async (request: AuthenticatedRequest) => {
         placedCandidates,
       ] = await Promise.all([
         prisma.job.count({ where: { recruiterId: userId } }),
-        prisma.job.count({ where: { recruiterId: userId, status: 'OPEN' } }),
+        prisma.job.count({ where: { recruiterId: userId } }),
         prisma.jobApplication.count({
           where: { job: { recruiterId: userId } },
         }),
@@ -194,7 +194,7 @@ export const GET = withAuth(async (request: AuthenticatedRequest) => {
           },
           job: {
             select: {
-              title: true,
+              jobTitle: true,
               jobCode: true,
             },
           },
@@ -205,7 +205,7 @@ export const GET = withAuth(async (request: AuthenticatedRequest) => {
 
       recentActivities = recentApps.map(app => ({
         type: 'application',
-        message: `${app.candidate.firstName} ${app.candidate.lastName} applied for ${app.job.title}`,
+        message: `${app.candidate.firstName} ${app.candidate.lastName} applied for ${app.job.jobTitle}`,
         timestamp: app.appliedAt,
       }))
     } else if (userRole === 'CANDIDATE') {
@@ -219,7 +219,7 @@ export const GET = withAuth(async (request: AuthenticatedRequest) => {
           include: {
             job: {
               select: {
-                title: true,
+                jobTitle: true,
                 jobCode: true,
                 client: {
                   select: {
@@ -235,7 +235,7 @@ export const GET = withAuth(async (request: AuthenticatedRequest) => {
 
         recentActivities = recentApps.map(app => ({
           type: 'application',
-          message: `Applied for ${app.job.title} at ${app.job.client.name}`,
+          message: `Applied for ${app.job.jobTitle} at ${app.job.client?.name ?? "Unknown Client"}`,
           timestamp: app.appliedAt,
         }))
       }

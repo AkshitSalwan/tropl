@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ArrowLeft, Clipboard, Upload, Edit, CheckCircle, AlertCircle, Upload as UploadIcon } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -11,26 +11,109 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+
+const INDIAN_STATES = [
+  "Andaman and Nicobar Islands",
+  "Andhra Pradesh",
+  "Arunachal Pradesh",
+  "Assam",
+  "Bihar",
+  "Chandigarh",
+  "Chhattisgarh",
+  "Dadra and Nagar Haveli and Daman and Diu",
+  "Delhi",
+  "Goa",
+  "Gujarat",
+  "Haryana",
+  "Himachal Pradesh",
+  "Jammu and Kashmir",
+  "Jharkhand",
+  "Karnataka",
+  "Kerala",
+  "Ladakh",
+  "Lakshadweep",
+  "Madhya Pradesh",
+  "Maharashtra",
+  "Manipur",
+  "Meghalaya",
+  "Mizoram",
+  "Nagaland",
+  "Odisha",
+  "Puducherry",
+  "Punjab",
+  "Rajasthan",
+  "Sikkim",
+  "Tamil Nadu",
+  "Telangana",
+  "Tripura",
+  "Uttar Pradesh",
+  "Uttarakhand",
+  "West Bengal"
+];
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useJobDescriptionUpload } from "@/hooks/useJobDescriptionUpload";
 
+
 interface CreateJobModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  initialJob?: any | null;
+  mode?: 'edit' | 'create';
+  onJobUpdated?: (updatedJob: any) => void;
+  onJobCreated?: (newJob: any) => void;
 }
 
-export function CreateJobModal({ open, onOpenChange }: CreateJobModalProps) {
+export function CreateJobModal({ open, onOpenChange, initialJob, mode = 'create', onJobUpdated, onJobCreated }: CreateJobModalProps) {
+
+  // Reset modal state when closed
+  useEffect(() => {
+    if (!open) {
+      setStep(1);
+      setCreationMethod(null);
+      setJobData({
+        jobTitle: "",
+        city: "",
+        state: "",
+        country: "India",
+        department: "",
+        industryType: "",
+        description: "",
+        experienceRequired: "",
+        educationUG: "",
+        educationPG: "",
+        additionalSkills: "",
+        salaryPerAnnum: "",
+        keySkills: ""
+      });
+    } else if (mode === 'edit' && initialJob) {
+      setJobData({
+        jobTitle: initialJob.jobTitle || "",
+        city: initialJob.city || "",
+        state: initialJob.state || "",
+        country: initialJob.country || "India",
+        department: initialJob.department || "",
+        industryType: initialJob.industryType || "",
+        description: initialJob.description || "",
+        experienceRequired: initialJob.experienceRequired || "",
+        educationUG: initialJob.educationUG || "",
+        educationPG: initialJob.educationPG || "",
+        additionalSkills: initialJob.additionalSkills || "",
+        salaryPerAnnum: initialJob.salaryPerAnnum || "",
+        keySkills: initialJob.keySkills || ""
+      });
+    }
+  }, [open, mode, initialJob]);
+
   const [step, setStep] = useState(1);
   const [creationMethod, setCreationMethod] = useState<"paste" | "upload" | "manual" | null>(null);
   const [jobData, setJobData] = useState({
     jobTitle: "",
     city: "",
     state: "",
-    country: "",
-    companyName: "",
+    country: "India",
     department: "",
     industryType: "",
     description: "",
@@ -71,7 +154,6 @@ export function CreateJobModal({ open, onOpenChange }: CreateJobModalProps) {
           city: data.location?.city || prev.city,
           state: data.location?.state || prev.state,
           country: data.location?.country || prev.country,
-          companyName: data.companyName || prev.companyName,
           department: data.department || prev.department,
           industryType: data.industryType || prev.industryType,
           description: data.description || prev.description,
@@ -106,7 +188,6 @@ export function CreateJobModal({ open, onOpenChange }: CreateJobModalProps) {
   const steps = [
     { number: 1, title: "Job Description" },
     { number: 2, title: "Job Details" },
-    { number: 3, title: "Share" },
   ];
 
   const renderStep1 = () => (
@@ -252,48 +333,40 @@ export function CreateJobModal({ open, onOpenChange }: CreateJobModalProps) {
               onChange={(e) => setJobData(prev => ({ ...prev, city: e.target.value }))}
               required
             />
-            <Input 
-              placeholder="State"
-              value={jobData.state}
-              onChange={(e) => setJobData(prev => ({ ...prev, state: e.target.value }))}
-              required
-            />
+            <Select value={jobData.state} onValueChange={value => setJobData(prev => ({ ...prev, state: value }))} required>
+              <SelectTrigger>
+                <SelectValue placeholder="Select State" />
+              </SelectTrigger>
+              <SelectContent>
+                {INDIAN_STATES.map(state => (
+                  <SelectItem key={state} value={state}>{state}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Input 
               placeholder="Country"
-              value={jobData.country}
-              onChange={(e) => setJobData(prev => ({ ...prev, country: e.target.value }))}
-              required
+              value="India"
+              disabled
             />
           </div>
         </div>
 
-        {/* Company Name - Mandatory */}
-        <div className="space-y-2">
-          <Label htmlFor="companyName">Company Name<span className="text-red-500">*</span></Label>
-          <Input 
-            id="companyName" 
-            placeholder="Enter company name"
-            value={jobData.companyName}
-            onChange={(e) => setJobData(prev => ({ ...prev, companyName: e.target.value }))}
-            required
-          />
-        </div>
+        {/* Company Name - Removed as per requirements */}
 
-        {/* Department - Mandatory */}
+        {/* Department - Optional */}
         <div className="space-y-2">
-          <Label htmlFor="department">Department<span className="text-red-500">*</span></Label>
+          <Label htmlFor="department">Department</Label>
           <Input 
             id="department" 
             placeholder="Enter department"
             value={jobData.department}
             onChange={(e) => setJobData(prev => ({ ...prev, department: e.target.value }))}
-            required
           />
         </div>
 
-        {/* Industry - Mandatory */}
+        {/* Industry - Optional */}
         <div className="space-y-2">
-          <Label htmlFor="industryType">Industry<span className="text-red-500">*</span></Label>
+          <Label htmlFor="industryType">Industry</Label>
           <Select 
             value={jobData.industryType}
             onValueChange={(value) => setJobData(prev => ({ ...prev, industryType: value }))}
@@ -354,14 +427,38 @@ export function CreateJobModal({ open, onOpenChange }: CreateJobModalProps) {
           />
         </div>
 
-        {/* Education PG - Mandatory */}
+        {/* Education PG - Optional */}
         <div className="space-y-2">
-          <Label htmlFor="educationPG">Education PG<span className="text-red-500">*</span></Label>
+          <Label htmlFor="educationPG">Education PG</Label>
           <Input 
             id="educationPG" 
             placeholder="e.g., M.Tech, MCA, MBA"
             value={jobData.educationPG}
             onChange={(e) => setJobData(prev => ({ ...prev, educationPG: e.target.value }))}
+          />
+        </div>
+        {/* Key Skills/Remarks - Mandatory */}
+        <div className="space-y-2">
+          <Label htmlFor="keySkills">Key Skills<span className="text-red-500">*</span></Label>
+          <Textarea 
+            id="keySkills"
+            placeholder="Enter key skills and remarks"
+            value={jobData.keySkills}
+            onChange={(e) => setJobData(prev => ({ ...prev, keySkills: e.target.value }))}
+            className="min-h-[100px]"
+            required
+          />
+        </div>
+        
+
+        {/* Salary per Annum - Mandatory */}
+        <div className="space-y-2">
+          <Label htmlFor="salaryPerAnnum">Salary per Annum<span className="text-red-500">*</span></Label>
+          <Input 
+            id="salaryPerAnnum" 
+            placeholder="e.g., 5-8 LPA, 10-15 LPA"
+            value={jobData.salaryPerAnnum}
+            onChange={(e) => setJobData(prev => ({ ...prev, salaryPerAnnum: e.target.value }))}
             required
           />
         </div>
@@ -378,81 +475,69 @@ export function CreateJobModal({ open, onOpenChange }: CreateJobModalProps) {
           />
         </div>
 
-        {/* Salary per Annum - Mandatory */}
-        <div className="space-y-2">
-          <Label htmlFor="salaryPerAnnum">Salary per Annum<span className="text-red-500">*</span></Label>
-          <Input 
-            id="salaryPerAnnum" 
-            placeholder="e.g., 5-8 LPA, 10-15 LPA"
-            value={jobData.salaryPerAnnum}
-            onChange={(e) => setJobData(prev => ({ ...prev, salaryPerAnnum: e.target.value }))}
-            required
-          />
-        </div>
-
-        {/* Key Skills/Remarks - Mandatory */}
-        <div className="space-y-2">
-          <Label htmlFor="keySkills">Key Skills/Remarks<span className="text-red-500">*</span></Label>
-          <Textarea 
-            id="keySkills"
-            placeholder="Enter key skills and remarks"
-            value={jobData.keySkills}
-            onChange={(e) => setJobData(prev => ({ ...prev, keySkills: e.target.value }))}
-            className="min-h-[100px]"
-            required
-          />
-        </div>
-
         {/* Navigation Buttons */}
         <div className="flex justify-between pt-4">
-          <Button variant="outline" onClick={() => setStep(1)}>
+          <Button variant="outline" onClick={() => { setStep(1); setCreationMethod(null); }}>
             <ArrowLeft className="w-4 h-4 mr-2" />
             Previous
           </Button>
-          <Button onClick={() => setStep(3)}>
-            Next
+          <Button
+            onClick={async () => {
+              try {
+                // Ensure salaryPerAnnum is not empty
+                const jobDataToSend = {
+                  ...jobData,
+                  salaryPerAnnum: jobData.salaryPerAnnum && jobData.salaryPerAnnum.trim() !== "" ? jobData.salaryPerAnnum : "0"
+                };
+                const token = localStorage.getItem("token");
+                let res;
+                if (mode === 'edit' && initialJob && initialJob.id) {
+                  res = await fetch(`/api/jobs/${initialJob.id}`, {
+                    method: "PATCH",
+                    headers: {
+                      "Content-Type": "application/json",
+                      Authorization: token ? `Bearer ${token}` : "",
+                    },
+                    body: JSON.stringify(jobDataToSend),
+                  });
+                } else {
+                  res = await fetch("/api/jobs", {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                      Authorization: token ? `Bearer ${token}` : "",
+                    },
+                    body: JSON.stringify(jobDataToSend),
+                  });
+                }
+                if (res.ok) {
+                  const result = await res.json();
+                  if (mode === 'edit') {
+                    if (result.success && result.data && onJobUpdated) {
+                      onJobUpdated(result.data);
+                    }
+                  } else {
+                    if (result.success && result.data && onJobCreated) {
+                      onJobCreated(result.data);
+                    }
+                  }
+                  onOpenChange(false);
+                } else {
+                  alert(mode === 'edit' ? "Failed to update job" : "Failed to create job");
+                }
+              } catch (err) {
+                alert(mode === 'edit' ? "Error updating job" : "Error creating job");
+              }
+            }}
+          >
+            {mode === 'edit' ? 'Update Job' : 'Create Job'}
           </Button>
         </div>
       </div>
     </div>
   );
 
-  const renderStep3 = () => (
-    <div className="space-y-6">
-      <div className="space-y-4">
-        <h3 className="font-medium">Share Job</h3>
-        <div className="space-y-2">
-          <Label>Share with Vendors</Label>
-          <Select>
-            <SelectTrigger>
-              <SelectValue placeholder="Select vendors" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="vendor1">Vendor 1</SelectItem>
-              <SelectItem value="vendor2">Vendor 2</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-2">
-          <Label>Additional Instructions</Label>
-          <Textarea placeholder="Enter any additional instructions for vendors" />
-        </div>
-      </div>
-
-      <div className="flex justify-between">
-        <Button variant="outline" onClick={() => setStep(2)}>
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Previous
-        </Button>
-        <Button onClick={() => {
-          console.log('Job created:', jobData);
-          onOpenChange(false);
-        }}>
-          Create Job
-        </Button>
-      </div>
-    </div>
-  );
+  // Step 3 (Share) removed
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -490,7 +575,6 @@ export function CreateJobModal({ open, onOpenChange }: CreateJobModalProps) {
           {/* Step Content */}
           {step === 1 && renderStep1()}
           {step === 2 && renderStep2()}
-          {step === 3 && renderStep3()}
         </div>
       </DialogContent>
     </Dialog>
