@@ -14,12 +14,18 @@ export async function GET(request: NextRequest) {
     
     // Add search functionality
     if (query) {
-      where.OR = [
-        { title: { contains: query, mode: 'insensitive' } },
-        { jobCode: { contains: query, mode: 'insensitive' } },
-        { location: { contains: query, mode: 'insensitive' } },
-        { client: { name: { contains: query, mode: 'insensitive' } } },
-      ]
+      // Split query into words, ignore empty strings
+      const words = query.split(/\s|,+/).map(w => w.trim()).filter(Boolean);
+      where.AND = words.map(word => ({
+        OR: [
+          { jobTitle: { contains: word, mode: 'insensitive' } },
+          { jobCode: { contains: word, mode: 'insensitive' } },
+          { city: { contains: word, mode: 'insensitive' } },
+          { state: { contains: word, mode: 'insensitive' } },
+          { country: { contains: word, mode: 'insensitive' } },
+          { client: { name: { contains: word, mode: 'insensitive' } } },
+        ]
+      }));
     }
 
     // Add filters
@@ -148,41 +154,28 @@ export const POST = withRole(['RECRUITER', 'ADMIN'], async (request: Authenticat
       }
     }
 
-    const jobCode = `${jobCodePrefix}-${jobNumber.toString().padStart(3, '0')}`    // Create job
+    const jobCode = `${jobCodePrefix}-${jobNumber.toString().padStart(3, '0')}`;
+    const jobData: any = {
+      jobCode,
+      jobTitle: validatedData.jobTitle,
+      city: validatedData.city,
+      state: validatedData.state,
+      country: validatedData.country,
+      department: validatedData.department ?? "",
+      industryType: validatedData.industryType ?? "",
+      description: validatedData.description,
+      experienceRequired: validatedData.experienceRequired,
+      educationUG: validatedData.educationUG,
+      additionalSkills: validatedData.additionalSkills ?? "",
+      salaryPerAnnum: validatedData.salaryPerAnnum,
+      keySkills: validatedData.keySkills,
+    };
+    if (validatedData.educationPG) {
+      jobData.educationPG = validatedData.educationPG;
+    }
     const job = await prisma.job.create({
-      data: {
-        ...validatedData,
-        jobCode,
-        recruiterId: request.user!.userId,
-        requirements: validatedData.requirements,
-      },
-      include: {
-        client: {
-          select: {
-            id: true,
-            name: true,
-            contactPerson: true,
-          },
-        },
-        vendor: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-        recruiter: {
-          select: {
-            id: true,
-            user: {
-              select: {
-                name: true,
-                email: true,
-              },
-            },
-          },
-        },
-      },
-    })
+      data: jobData,
+    });
 
     return NextResponse.json(
       createApiResponse(true, job, 'Job created successfully'),

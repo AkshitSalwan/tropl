@@ -148,20 +148,19 @@ export const updateVendorSchema = createVendorSchema.partial()
 
 // Job validation schemas
 export const createJobSchema = z.object({
-  title: z.string().min(1, 'Job title is required'),
-  description: z.string().optional(),
-  requirements: z.array(z.string()).default([]),
-  location: z.string().optional(),
-  jobType: z.enum(['FULL_TIME', 'PART_TIME', 'CONTRACT', 'FREELANCE', 'INTERNSHIP']).default('FULL_TIME'),
-  experienceLevel: z.enum(['ENTRY_LEVEL', 'MID_LEVEL', 'SENIOR_LEVEL', 'EXECUTIVE']).default('MID_LEVEL'),
-  minSalary: z.number().min(0).optional(),
-  maxSalary: z.number().min(0).optional(),
-  currency: z.string().default('USD'),
-  priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).default('MEDIUM'),
-  openings: z.number().min(1).default(1),
-  clientId: z.string().min(1, 'Client is required'),
-  vendorId: z.string().optional(),
-  clientJobId: z.string().optional(),
+  jobTitle: z.string().min(1, 'Job title is required'),
+  city: z.string().min(1, 'City is required'),
+  state: z.string().min(1, 'State is required'),
+  country: z.string().min(1, 'Country is required'),
+  department: z.string().optional(),
+  industryType: z.string().optional(),
+  description: z.string().min(1, 'Description is required'),
+  experienceRequired: z.string().min(1, 'Experience required'),
+  educationUG: z.string().min(1, 'UG Education is required'),
+  educationPG: z.string().optional(), // PG is now optional
+  additionalSkills: z.string().optional(),
+  salaryPerAnnum: z.string().min(1, 'Salary per annum is required'),
+  keySkills: z.string().min(1, 'Key skills are required'),
 })
 
 export const updateJobSchema = createJobSchema.partial()

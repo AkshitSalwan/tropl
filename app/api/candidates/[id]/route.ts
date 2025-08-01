@@ -85,9 +85,8 @@ export async function GET(
             job: {
               select: {
                 id: true,
-                title: true,
+                jobTitle: true,
                 jobCode: true,
-                status: true,
                 client: {
                   select: {
                     name: true,
@@ -103,7 +102,6 @@ export async function GET(
             job: {
               select: {
                 id: true,
-                title: true,
                 jobCode: true,
               },
             },

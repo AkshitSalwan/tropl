@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Calendar } from "@/components/ui/calendar";
 import { Badge } from "@/components/ui/badge";
-import { Mail, Phone, MessageSquare, Eye, Pencil, Calendar as CalendarIcon, Trash2, CheckSquare, Square, Loader2 } from "lucide-react";
+import { Mail, Phone, MessageSquare, Eye, Pencil, Calendar as CalendarIcon, Trash2, CheckSquare, Square, Loader2, RefreshCw } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { format, addDays } from "date-fns";
@@ -188,28 +188,28 @@ export function JobSeekersTable({ filters }: JobSeekersTableProps) {
         return;
       }
 
+      let willUpdate = true;
+      let fetchedData: any[] = [];
       try {
-        setLoading(true);
-        
         // Build query parameters for filtering
         const queryParams = new URLSearchParams();
-        
-        // Combine search filters into a single query parameter
-        const searchTerms = [filters.search, filters.jobTitle, filters.skills, filters.location]
-          .filter(term => term.trim() !== '')
-          .join(' ');
-        
-        if (searchTerms) {
-          queryParams.append('query', searchTerms);
+
+        // Add each filter as a separate query parameter if present
+        if (filters.search && filters.search.trim() !== '') {
+          queryParams.append('search', filters.search.trim());
         }
-        
-        // Add specific filters
-        if (filters.location.trim()) {
-          queryParams.append('filters[location]', filters.location);
+        if (filters.jobTitle && filters.jobTitle.trim() !== '') {
+          queryParams.append('jobTitle', filters.jobTitle.trim());
+        }
+        if (filters.skills && filters.skills.trim() !== '') {
+          queryParams.append('skills', filters.skills.trim());
+        }
+        if (filters.location && filters.location.trim() !== '') {
+          queryParams.append('location', filters.location.trim());
         }
 
         const url = `/api/candidates${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
-        
+
         const response = await fetch(url, {
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -222,7 +222,16 @@ export function JobSeekersTable({ filters }: JobSeekersTableProps) {
 
         const result = await response.json();
         if (result.success && result.data) {
-          setJobSeekers(result.data);
+          fetchedData = result.data;
+          // Only update if data is different (shallow compare by id and length)
+          const isSame = Array.isArray(fetchedData) && Array.isArray(jobSeekers)
+            && fetchedData.length === jobSeekers.length
+            && fetchedData.every((item: any, idx: number) => item.id === jobSeekers[idx]?.id);
+          willUpdate = !isSame;
+          if (willUpdate) {
+            setLoading(true);
+            setJobSeekers(fetchedData);
+          }
           setError(null); // Clear any previous errors
         } else {
           throw new Error(result.error || 'Failed to fetch candidates');
@@ -231,7 +240,7 @@ export function JobSeekersTable({ filters }: JobSeekersTableProps) {
         console.error('Error fetching candidates:', error);
         setError(error instanceof Error ? error.message : 'Failed to fetch candidates');
       } finally {
-        setLoading(false);
+        if (willUpdate) setLoading(false);
       }
     };
 
@@ -240,7 +249,54 @@ export function JobSeekersTable({ filters }: JobSeekersTableProps) {
 
   const allSelected = selectedIds.length === jobSeekers.length && jobSeekers.length > 0;
   const anySelected = selectedIds.length > 0;
-  const selectedCandidates = jobSeekers.filter((j: JobSeeker) => selectedIds.includes(j.id));
+
+  // Apply all filters (AND logic) on the frontend for strict matching
+  let filteredJobSeekers = jobSeekers.filter((j: JobSeeker) => {
+    // Skills filter (selectedSkills only)
+    if (filters.skills && filters.skills.trim() !== "") {
+      const skillKeyword = filters.skills.trim().toLowerCase();
+      const selectedSkills = (j.selectedSkills || []).map(s => s.toLowerCase());
+      if (!selectedSkills.some(skill => skill.includes(skillKeyword))) {
+        return false;
+      }
+    }
+    // Job title filter
+    if (filters.jobTitle && filters.jobTitle.trim() !== "") {
+      const jobTitleKeyword = filters.jobTitle.trim().toLowerCase();
+      if (!(j.jobTitle || "").toLowerCase().includes(jobTitleKeyword)) {
+        return false;
+      }
+    }
+    // Location filter (city, state, country, location)
+    if (filters.location && filters.location.trim() !== "") {
+      const locationKeyword = filters.location.trim().toLowerCase();
+      const locFields = [j.city, j.state, j.country, j.location].map(x => (x || "").toLowerCase());
+      if (!locFields.some(loc => loc.includes(locationKeyword))) {
+        return false;
+      }
+    }
+    // General search filter (name, email, phone)
+    if (filters.search && filters.search.trim() !== "") {
+      const searchKeyword = filters.search.trim().toLowerCase();
+      const name = ((j.firstName || "") + " " + (j.lastName || "")).toLowerCase();
+      const userName = (j.user?.name || "").toLowerCase();
+      const email = (j.email || j.user?.email || "").toLowerCase();
+      const phone = (j.phone || j.user?.phone || "").toLowerCase();
+      if (
+        !(
+          name.includes(searchKeyword) ||
+          userName.includes(searchKeyword) ||
+          email.includes(searchKeyword) ||
+          phone.includes(searchKeyword)
+        )
+      ) {
+        return false;
+      }
+    }
+    return true;
+  });
+
+  const selectedCandidates = filteredJobSeekers.filter((j: JobSeeker) => selectedIds.includes(j.id));
 
   const sampleJobs = [
     { id: 1, title: "Senior Manager", client: "MARUTI", status: "OPEN", category: "Management" },
@@ -330,7 +386,7 @@ export function JobSeekersTable({ filters }: JobSeekersTableProps) {
     );
   }
 
-  if (jobSeekers.length === 0) {
+  if (filteredJobSeekers.length === 0) {
     return (
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
         <div className="text-center text-gray-500">
@@ -379,7 +435,7 @@ export function JobSeekersTable({ filters }: JobSeekersTableProps) {
       {/* Table header with count and refresh */}
       <div className="flex justify-between items-center mb-4 px-2">
         <div className="text-sm text-gray-600">
-          {jobSeekers.length} candidate{jobSeekers.length !== 1 ? 's' : ''} found
+          {filteredJobSeekers.length} candidate{filteredJobSeekers.length !== 1 ? 's' : ''} found
           {Object.values(filters).some(f => f.trim() !== '') && (
             <span className="ml-2 text-blue-600">(filtered)</span>
           )}
@@ -388,10 +444,10 @@ export function JobSeekersTable({ filters }: JobSeekersTableProps) {
           onClick={refreshData}
           variant="outline" 
           size="sm"
-          className="flex items-center gap-1"
+          className="flex items-center gap-2"
           disabled={authLoading || loading}
         >
-          <Loader2 className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
           Refresh
         </Button>
       </div>
@@ -421,7 +477,7 @@ export function JobSeekersTable({ filters }: JobSeekersTableProps) {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {jobSeekers.map((seeker: JobSeeker) => (
+          {filteredJobSeekers.map((seeker: JobSeeker) => (
             <TableRow key={seeker.id}>
               <TableCell>
                 <input
